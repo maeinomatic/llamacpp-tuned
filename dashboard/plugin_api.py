@@ -141,6 +141,29 @@ def _engine_ready() -> bool:
     return ENGINE.is_file()
 
 
+def _resolve_engine() -> str:
+    """Prefer Hermes' own PM-installed engine when its build is new enough
+    (full integration: PM manages the binary and the Desktop update button
+    upgrades it); otherwise fall back to the plugin's own copy in
+    runtimes/llamacpp-tuned/ (outside PM's managed dir, so a Desktop update
+    can never clobber it, and PM's inventory never sees it).
+    """
+    try:
+        from hermes_cli.local_runtime.binaries import installed_engine
+        eng = installed_engine(os.environ.get("LLAMACPP_TUNED_BACKEND", "auto"))
+        if eng is not None:
+            build = int(str(eng.tag).lstrip("b"))
+            if build >= 12255 and Path(eng.binary).is_file():
+                return str(eng.binary)
+    except Exception:
+        pass
+    return str(ENGINE)
+
+
+# engine actually in use right now (resolved at spawn; kept in state)
+_engine_in_use: str | None = None
+
+
 # -- preset generation (model-independent) --------------------------------
 def _gguf_tools():
     from hermes_cli.local_runtime.gguf import model_id_from_stem, read_gguf_header
@@ -402,11 +425,14 @@ def _attach_watchdog(proc):
 
 
 def _spawn():
+    global _engine_in_use
     ENGINE_DIR.mkdir(parents=True, exist_ok=True)
     _generate_presets()
     log = open(LOG, "a")
+    engine = _resolve_engine()
+    _engine_in_use = engine
     proc = subprocess.Popen(
-        [str(ENGINE), "--models-preset", str(PRESET), "--models-max", "1",
+        [engine, "--models-preset", str(PRESET), "--models-max", "1",
          "--port", str(_settings()["port"]), "--metrics", "--host",
          "127.0.0.1"],
         stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
@@ -439,7 +465,9 @@ def _ensure_threads():
 
 
 def _read_state():
+    global _engine_in_use
     running = _proc is not None and _proc.poll() is None and _health()
+    engine = _engine_in_use or _resolve_engine()
     return {"enabled": _proc is not None,
             "running": running,
             "loaded": _loaded_models() if running else [],
@@ -447,8 +475,8 @@ def _read_state():
             "progress": _progress_state() if running else {},
             "models": list(_models_status()) if running else [],
             "port": _settings()["port"] if running else None,
-            "engine": str(ENGINE),
-            "engine_ready": _engine_ready(),
+            "engine": engine,
+            "engine_ready": Path(engine).is_file(),
             "engine_progress": dict(_state),
             "busy": _operation.locked()}
 
@@ -490,7 +518,7 @@ async def install_engine(body: InstallRequest | None = None):
 async def load_model(body: LoadRequest):
     """Start loading a staged model now (pre-load ahead of the chat request)."""
     global _proc
-    if not _engine_ready():
+    if not Path(_resolve_engine()).is_file():
         raise HTTPException(503, "llama-server engine is not installed (POST /install first).")
     if not _operation.acquire(blocking=False):
         raise HTTPException(409, "Another operation is already running.")
@@ -519,7 +547,7 @@ async def load_model(body: LoadRequest):
 @router.post("/mode")
 async def set_mode(body: ModeRequest):
     global _proc
-    if body.enabled and not _engine_ready():
+    if body.enabled and not Path(_resolve_engine()).is_file():
         raise HTTPException(503, "llama-server engine is not installed (POST /install first).")
     if not _operation.acquire(blocking=False):
         raise HTTPException(409, "Another mode change is already running.")
