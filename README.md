@@ -32,6 +32,13 @@ Tuned recipe for the Qwen3.5-35B-A3B MoE (see "How presets are generated" below)
 
 - **Status-bar chip** in the Desktop app: `LLM ○ off` / `LLM ⏳ 42%` (live load percent) /
   `LLM ● n` (loaded models). Click toggles ON/OFF; OFF hands back to Hermes' managed runtime.
+- **Scoped prompt section** (`llamacpp-tuned-file-editing`, shipped alongside the `WG` fix):
+  sessions running a staged local model get three imperative file-editing rules — read a file
+  before you edit it, write whole files with `write_file` instead of shell heredocs, quote
+  `patch` `old_string` exactly. They are doubly scoped (the `WG` switch must be on **and** the
+  session's model must be a staged GGUF), so Codex / Copilot / OpenRouter sessions render no
+  section at all. The rules restate what the tool descriptions already say, in the terse form a
+  small model actually follows.
 - **Auto-preload**: selecting a staged local model in a chat fires the load immediately, so
   the chat request arrives warm (Hermes times out during multi-minute cold loads, and the
   router would otherwise discard the half-loaded model on cancel).
@@ -119,7 +126,7 @@ per-machine — it is never committed). All keys are optional:
 | `poll_s` | `60` | Idle-check interval. |
 | `moe_ctx_cap` | `262144` | Context ceiling for MoE models (further capped by what q4 KV fits in VRAM). |
 | `dense_ctx` | `32768` | Context ceiling for dense models. |
-| `local_guard_fix` | `false` | Opt-in **fix** for Hermes' read-before-write guard (not a bypass), applied only around a `write_file`/`read_file`/`patch` call from a session running one of the staged local models (reads count too: the read path decides the snapshot's completeness flag and *drops* a baseline the session had established) — the status-bar chip's `WG` segment (`POST /file-guard`). Hermes' guard snapshots a file with `os.fstat` and requires it to equal `os.stat` field-by-field including `st_ctime_ns`; on Windows those two calls report *different* timestamps in that slot (path → creation time, handle → change time), so it can only baseline a file never modified since creation and refuses legitimate overwrites with "has not seen its full current content". The plugin rebinds that one helper for the duration of the call to a version that takes a single metadata view (`os.stat`) and leaves byte identity to the sha256 the guard already computes — so overwrites work **and** a genuinely stale overwrite (digest mismatch) is still refused. Codex, Copilot, OpenRouter and every other provider keep the shipped helper, and the rebinding fails open (restores what it touched) if the helper is missing or misbehaves. No restart needed; the hooks read this key on the next tool call. Pre-rename key `local_write_guard_bypass` is still accepted. |
+| `local_guard_fix` | `false` | Opt-in **fix** for Hermes' read-before-write guard (not a bypass), applied only around a `write_file`/`read_file`/`patch` call from a session running one of the staged local models (reads count too: the read path decides the snapshot's completeness flag and *drops* a baseline the session had established) — the status-bar chip's `WG` segment (`POST /file-guard`). Hermes' guard snapshots a file with `os.fstat` and requires it to equal `os.stat` field-by-field including `st_ctime_ns`; on Windows those two calls report *different* timestamps in that slot (path → creation time, handle → change time), so it can only baseline a file never modified since creation and refuses legitimate overwrites with "has not seen its full current content". The plugin rebinds that one helper for the duration of the call to a version that takes a single metadata view (`os.stat`) and leaves byte identity to the sha256 the guard already computes — so overwrites work **and** a genuinely stale overwrite (digest mismatch) is still refused. Codex, Copilot, OpenRouter and every other provider keep the shipped helper, and the rebinding fails open (restores what it touched) if the helper is missing or misbehaves. No restart needed; the hooks read this key on the next tool call. Pre-rename key `local_write_guard_bypass` is still accepted. **The same switch also registers the scoped prompt section** (feature list above): it takes effect for *new* sessions, and `HERMES_HOME` plugin code changes need a gateway restart to load. |
 
 Example — use an existing Vulkan/ROCm build on another machine:
 
@@ -137,7 +144,9 @@ logs, preset file) is derived from Hermes' own home directory at runtime.
 
 ```
 plugin.yaml            Hermes agent-plugin manifest
-__init__.py            package marker + no-op register()
+__init__.py            agent half: the scoped read-before-write guard fix
+                       (pre_llm_call/pre_tool_call/post_tool_call) and the
+                       llamacpp-tuned-file-editing prompt section
 dashboard/             agent half (FastAPI backend mounted at /api/plugins/llamacpp-tuned)
   plugin_api.py        router supervisor: engine download, preset generation, spawn/stop,
                        pre-load, idle sweeper, SSE progress, watchdog

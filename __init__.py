@@ -21,6 +21,13 @@ The rebinding targets a private helper, so it FAILS OPEN: if the module or funct
 missing, or the corrected version cannot be confirmed on this filesystem, the plugin
 restores what it touched, leaves core alone, and the WG segment reports that it could
 not be applied.
+
+The same switch also registers one system-prompt section (llamacpp-tuned-file-editing)
+with the three rules the staged GGUFs break: read before you edit, write whole files
+with write_file instead of shell heredocs, quote patch old_string exactly. It is doubly
+scoped -- the chip switch must be ON and the session's model must be one of the staged
+GGUFs -- so a Codex/Copilot/OpenRouter session renders no section at all (the core skips
+empty content).
 """
 import hashlib
 import json
@@ -49,6 +56,7 @@ _settings_cache = {"mtime_ns": None, "enabled": False}
 _models_cache = {"ts": 0.0, "ids": frozenset()}
 _installed: tuple = ()          # ((module, name, original), ...) while the fix is live
 _last_error = ""
+_section_error = ""             # "" once the prompt section registered (reported by shim_state)
 
 
 # ── settings / staged models ─────────────────────────────────────────────
@@ -99,6 +107,34 @@ def _enabled() -> bool:
             enabled = False
         _settings_cache.update(mtime_ns=mtime, enabled=enabled)
     return bool(_settings_cache["enabled"])
+
+
+# ── local-model prompt section ───────────────────────────────────────────
+# The staged GGUFs already receive these rules in the tool descriptions and ignore them
+# (write_file: "For an EXISTING file, call read_file first"; patch: old_string is the
+# exact current text; both say to prefer the file tools over heredocs), so restating
+# them at greater length changes nothing -- a short imperative block in the prompt does.
+# Doubly scoped: chip switch ON and the session's model is a staged GGUF, so every other
+# provider renders no section (the core drops empty content).
+SECTION_ID = "llamacpp-tuned-file-editing"
+SECTION_TEXT = (
+    "Local-model file-editing rules for this session:\n"
+    "- Before editing an existing file with write_file or patch, call read_file on that file in the same turn.\n"
+    "- Write whole files with write_file. Never emit file bodies through terminal or execute_code "
+    "heredocs (cat > f << 'EOF'), and never paste a file body into a Python string.\n"
+    "- patch old_string must be the exact current text of the file, with surrounding context lines."
+)
+
+
+def local_editing_rules(session_info) -> str:
+    """Section content: the rules for a staged local model, else '' (core skips empty)."""
+    try:
+        if not _enabled():
+            return ""
+        model = str((session_info or {}).get("model") or "")
+        return SECTION_TEXT if model in _staged_model_ids() else ""
+    except Exception:
+        return ""
 
 
 # ── the corrected helper ─────────────────────────────────────────────────
@@ -207,7 +243,8 @@ def remove_guard_fix() -> None:
 
 
 def shim_state() -> dict:
-    return {"applied": bool(_installed), "error": _last_error}
+    return {"applied": bool(_installed), "error": _last_error,
+            "prompt_section": _section_error or "registered"}
 
 
 # ── hooks ────────────────────────────────────────────────────────────────
@@ -250,6 +287,21 @@ def on_post_tool_call(**_kwargs) -> None:
     return None
 
 
+def _register_prompt_section(ctx) -> None:
+    """Register the scoped prompt section. A core without the surface (or one that rejects
+    the id) must not break the hooks, so this fails open and reports through shim_state()."""
+    global _section_error
+    register_section = getattr(ctx, "register_system_prompt_section", None)
+    if not callable(register_section):
+        _section_error = "core has no register_system_prompt_section"
+        return
+    try:
+        register_section(SECTION_ID, local_editing_rules, position="after_memory")
+        _section_error = ""
+    except Exception as exc:
+        _section_error = f"{type(exc).__name__}: {exc}"
+
+
 def register(ctx):
     try:
         import tools.file_tools_read_tracking as rt
@@ -257,6 +309,7 @@ def register(ctx):
             _last_error = f"{_HELPER} not found in tools.file_tools_read_tracking"
     except Exception as exc:
         _last_error = f"import failed: {exc}"
+    _register_prompt_section(ctx)
     ctx.register_hook("pre_llm_call", on_pre_llm_call)
     ctx.register_hook("pre_tool_call", on_pre_tool_call)
     ctx.register_hook("post_tool_call", on_post_tool_call)
