@@ -138,6 +138,27 @@ desktop/               Desktop half (status-bar chip, hot-reloaded)
   plugin.js
 ```
 
+## Tested setup (development machine)
+
+Reference for what this plugin was built and validated against:
+
+- **Machine**: RTX 3070 8 GB (desktop GPU), i7-13700K, 64 GB dual-channel DDR5-4800, Windows 10
+- **llama.cpp build**: **b12255** (`0.9.0-dev`, commit `940a30ee3`), Windows x64 **CUDA 12.4**
+  — installed by the plugin into `%LOCALAPPDATA%\hermes\runtimes\llamacpp-tuned\llama-server.exe`
+  (a matching full unpacked copy lives in `%LOCALAPPDATA%\hermes\llamacpp-bench\` from
+  benchmarking). Engine resolution prefers Hermes' own PM engine once its pin reaches b12255.
+- **Models tested** (Qwen3.5 family, abliterated i1 quants, staged via symlinks from `F:`):
+  - `Qwen3.5-35B-A3B` Q4_K_M — MoE recipe (experts→RAM, q4 KV, ngram-mod 10, 256K ctx);
+    ~44 tok/s chat baseline → 72–100 tok/s tuned, 99.8 tok/s on lookup-heavy work (2.4×)
+  - `Qwen3.5-9B` Q4_K_M — dense, doesn't fit → FFN-CPU split, q8 KV, 32K ctx
+  - `Qwen3.5-4B` Q4_K_M — dense, fully in VRAM, q8 KV, 32K ctx
+  - `Qwen3-Next-80B-A3B` IQ4_XS — MoE recipe generated, but the auto-computed 256K window
+    needs ~15 GiB VRAM (its full-attention layers cost ~98 KB/token) — **does not fit an
+    8 GB card**; cap its `ctx-size` (~64–90K) by hand or with `moe_ctx_cap` until the
+    generator's cross-check lands
+- **Benchmarks**: llama-server `/completion`, greedy (`temperature: 0`), 256–512 tokens,
+  timings from the response object; SPEED-Bench-style chat/code/math/doc-copy prompts
+
 ## Notes & hard-won lessons
 
 - `os.kill(pid, 0)` on Windows **terminates** the target — never use it as a liveness probe.
