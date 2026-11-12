@@ -278,11 +278,6 @@ def _generate_presets() -> int:
             if w + reserve <= vram:
                 keys["ctx-size"] = str(min(native_ctx, int(s["dense_ctx"])))
                 keys["cache-type-k"] = keys["cache-type-v"] = "q8_0"
-                if s.get("dense_spec"):
-                    keys["spec-type"] = "ngram-mod"
-                    keys["spec-ngram-mod-n-max"] = "16"
-                    keys["spec-ngram-mod-n-min"] = "2"
-                    keys["spec-ngram-mod-n-match"] = "24"
             else:
                 # dense too big: FFN layers to CPU (attention split), q8 KV
                 keys["override-tensor"] = r"blk\.\d+\.ffn_.*\.weight=CPU"
@@ -292,11 +287,6 @@ def _generate_presets() -> int:
                 ctx = min(native_ctx, int(s["dense_ctx"]),
                           int(budget_kv // kv_per_tok))
                 keys["ctx-size"] = str(max(ctx, 4096))
-                if s.get("dense_spec"):
-                    keys["spec-type"] = "ngram-mod"
-                    keys["spec-ngram-mod-n-max"] = "16"
-                    keys["spec-ngram-mod-n-min"] = "2"
-                    keys["spec-ngram-mod-n-match"] = "24"
         body = "\n".join(f"{k} = {v}" for k, v in keys.items())
         sections.append(f"[{model_id}]\n{body}\n")
         count += 1
