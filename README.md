@@ -114,8 +114,35 @@ GGUF header and writes a per-model section into
 
 ## Configuration (`dashboard/settings.json`)
 
-Create `settings.json` next to `plugin_api.py` to override defaults (gitignored,
-per-machine — it is never committed). All keys are optional:
+Per-machine overrides live in a **`settings.json` you must create yourself** at
+
+```
+<hermes plugins folder>\llamacpp-tuned\dashboard\settings.json
+```
+
+(Windows default: `%LOCALAPPDATA%\hermes\plugins\llamacpp-tuned\dashboard\settings.json`).
+The file is gitignored and never committed — every machine keeps its own.
+It is a single JSON object; every key is optional, and keys you omit fall back
+to the defaults below. Create the file only after the plugin folder exists
+(cloning it creates the folder). A missing file is fine — the plugin runs on
+pure defaults; you need the file as soon as you want to point at your own
+engine or change any cap.
+
+Example with every key (all optional — omit what you don't need):
+
+```json
+{
+  "engine_path": "C:/Users/jup03/llama-local/llama-rocm10/llama-server.exe",
+  "backend": "vulkan",
+  "port": 8080,
+  "idle_unload_s": 900,
+  "poll_s": 60,
+  "moe_ctx_cap": 131072,
+  "dense_ctx": 65536,
+  "dense_ngram": true,
+  "local_guard_fix": true
+}
+```
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -125,7 +152,8 @@ per-machine — it is never committed). All keys are optional:
 | `idle_unload_s` | `900` | Seconds without token activity before a loaded model is unloaded to free VRAM. |
 | `poll_s` | `60` | Idle-check interval. |
 | `moe_ctx_cap` | `262144` | Context ceiling for MoE models (further capped by what q4 KV fits in VRAM). |
-| `dense_ctx` | `32768` | Context ceiling for dense models. |
+| `dense_ctx` | `32768` | Context ceiling for dense models. Raise it if the machine enforces a higher minimum served context (Hermes requires ≥64K) or memory allows. |
+| `dense_ngram` | `false` | Opt-in: dense-model presets also get n-gram lookup speculative decoding (`ngram-mod`, n-max 16 — the same mechanism the MoE recipe always has). Measured on a Radeon 890M iGPU: dense Qwen3.5-9B ~3× on context-heavy work (89.6 vs ~30 tok/s doc-reproduction); no gain on novel chat text. Leave off unless your machine benefits — costs a little on pure-novel generation. |
 | `local_guard_fix` | `false` | Opt-in **fix** for Hermes' read-before-write guard (not a bypass), applied only around a `write_file`/`read_file`/`patch` call from a session running one of the staged local models (reads count too: the read path decides the snapshot's completeness flag and *drops* a baseline the session had established) — the status-bar chip's `WG` segment (`POST /file-guard`). Hermes' guard snapshots a file with `os.fstat` and requires it to equal `os.stat` field-by-field including `st_ctime_ns`; on Windows those two calls report *different* timestamps in that slot (path → creation time, handle → change time), so it can only baseline a file never modified since creation and refuses legitimate overwrites with "has not seen its full current content". The plugin rebinds that one helper for the duration of the call to a version that takes a single metadata view (`os.stat`) and leaves byte identity to the sha256 the guard already computes — so overwrites work **and** a genuinely stale overwrite (digest mismatch) is still refused. Codex, Copilot, OpenRouter and every other provider keep the shipped helper, and the rebinding fails open (restores what it touched) if the helper is missing or misbehaves. No restart needed; the hooks read this key on the next tool call. Pre-rename key `local_write_guard_bypass` is still accepted. **The same switch also registers the scoped prompt section** (feature list above): it takes effect for *new* sessions, and `HERMES_HOME` plugin code changes need a gateway restart to load. |
 
 Example — use an existing Vulkan/ROCm build on another machine:
