@@ -62,7 +62,13 @@ ENGINE_ASSETS = {  # (system, nvidia?) -> release asset name
 }
 
 DEFAULTS = {"port": 8080, "idle_unload_s": 900, "poll_s": 60,
-            "moe_ctx_cap": 262144, "dense_ctx": 32768}
+            "moe_ctx_cap": 262144, "dense_ctx": 32768,
+            # Optional overrides for non-default machines (settings.json):
+            # "engine_path": "<path to an existing llama-server binary>" —
+            #   wins over everything (use your own CUDA/Vulkan/ROCm build);
+            # "backend": "cuda"|"vulkan"|"cpu" — asset picked by /install
+            #   instead of nvidia-smi auto-detection.
+            "engine_path": "", "backend": ""}
 
 _operation = threading.Lock()
 _proc = None
@@ -85,14 +91,17 @@ def _nvidia() -> bool:
 
 
 def _engine_asset(tag: str) -> str:
-    key = (platform.system(), _nvidia())
+    backend = (_settings().get("backend") or "").lower() or ("cuda" if _nvidia() else "cpu")
+    if backend == "rocm":
+        backend = "vulkan"  # no official HIP assets; AMD cards ride the Vulkan build
+    key = (platform.system(), backend == "cuda")
     name = ENGINE_ASSETS.get(key)
     if name is None:
         if platform.system() == "Darwin":
             name = ("llama-{tag}-bin-macos-arm64-metal.tar.gz" if platform.machine() == "arm64"
                     else "llama-{tag}-bin-macos-x64-metal.tar.gz")
         else:
-            raise RuntimeError(f"no engine asset mapping for {key}")
+            raise RuntimeError(f"no engine asset mapping for {platform.system()}/{backend}")
     return name.format(tag=tag)
 
 
@@ -142,12 +151,17 @@ def _engine_ready() -> bool:
 
 
 def _resolve_engine() -> str:
-    """Prefer Hermes' own PM-installed engine when its build is new enough
-    (full integration: PM manages the binary and the Desktop update button
-    upgrades it); otherwise fall back to the plugin's own copy in
-    runtimes/llamacpp-tuned/ (outside PM's managed dir, so a Desktop update
-    can never clobber it, and PM's inventory never sees it).
+    """Engine resolution order:
+    1. settings.json "engine_path" — a user-provided llama-server binary
+       (e.g. an existing CUDA/Vulkan/ROCm build on another machine);
+    2. Hermes' own PM-installed engine when its build is new enough
+       (PM manages it, the Desktop update button upgrades it);
+    3. the plugin's own copy in runtimes/llamacpp-tuned/ (outside PM's
+       managed dir, so a Desktop update can never clobber it).
     """
+    custom = (_settings().get("engine_path") or "").strip()
+    if custom and Path(custom).is_file():
+        return custom
     try:
         from hermes_cli.local_runtime.binaries import installed_engine
         eng = installed_engine(os.environ.get("LLAMACPP_TUNED_BACKEND", "auto"))

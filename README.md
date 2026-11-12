@@ -38,7 +38,35 @@ Tuned recipe for the Qwen3.5-35B-A3B MoE (see `dashboard/tuned-presets.ini`):
   unloaded to free VRAM; they auto-reload on the next request.
 - **Auto-close**: a detached watchdog kills the router tree when the Hermes gateway dies.
 
-## Install
+## Install on another machine
+
+The plugin is backend-agnostic: any llama.cpp build with router mode and
+`ngram-mod` speculative decoding works (b11671+ has ngram-mod; router preset
+flags need roughly b12000+; b12255 is what we test).
+
+1. Copy this folder to `%LOCALAPPDATA%\hermes\plugins\llamacpp-tuned\`
+   (Linux: `~/.hermes/plugins/llamacpp-tuned/`) and enable it
+   (`hermes plugins enable llamacpp-tuned` + Desktop → Plugins toggle).
+2. **Use your existing llama.cpp build** — write `settings.json` next to
+   `plugin_api.py`:
+
+   ```json
+   { "engine_path": "D:/tools/llama.cpp/llama-server.exe" }
+   ```
+
+   The preset generator, preload, idle unload, progress feed and watchdog all
+   work with whatever binary you point at — Vulkan, ROCm (or CUDA), any vendor.
+3. Or let the plugin fetch an engine: click the chip ON without an engine and
+   it will tell you to run `/install`; backend auto-detects from `nvidia-smi`
+   (CUDA vs Vulkan), or force it with `"backend": "vulkan"` / `"cpu"` in
+   `settings.json` (no official HIP builds exist in llama.cpp releases — AMD
+   cards ride Vulkan, or point `engine_path` at your own ROCm build).
+4. Models: any GGUFs staged in Hermes' Local Models pane get a tuned preset
+   generated automatically (MoE vs dense detected from the GGUF header); edit
+   the generated `presets.ini` behavior via `settings.json` caps
+   (`moe_ctx_cap`, `dense_ctx`, `port`, `idle_unload_s`).
+
+## Install (reference, original machine)
 
 Requirements: Windows, NVIDIA GPU + CUDA-capable llama.cpp build at
 `%LOCALAPPDATA%\hermes\llamacpp-bench\llama-server.exe` (any recent build with router mode,
