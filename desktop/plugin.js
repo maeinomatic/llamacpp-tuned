@@ -53,30 +53,37 @@ function Chip({ api }) {
     : on && loading ? 'var(--ui-warn, var(--ui-text-secondary))'
     : on ? 'var(--ui-green, var(--ui-text-secondary))'
     : 'var(--ui-text-quaternary)'
+  // The two controls are SIBLINGS, never nested: a click on the WG segment must not
+  // be able to reach a router-mode handler at all. The statusbar wrapper carries no
+  // click handler of its own, so no propagation trick is needed (and stopPropagation
+  // alone was not enough here).
   return jsx('div', {
-    onClick: (e) => {
-      e.preventDefault()
-      if (busy) return
-      // optimistic paint so the click feels immediate
-      queryClient.setQueryData(STATUS_KEY, { ...data, busy: true })
-      api('/mode', { method: 'POST', body: { enabled: !on } })
-        .catch(() => {})
-        .finally(() => {
-          queryClient.invalidateQueries({ queryKey: STATUS_KEY })
-          refetch()
-        })
-    },
     style: {
-      display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer',
+      display: 'flex', alignItems: 'center', gap: 6,
       padding: '0 8px', fontSize: 11, whiteSpace: 'nowrap', userSelect: 'none',
       color,
     },
-    title: on
-      ? 'Tuned llama.cpp router: ON — click to disable (managed runtime takes over)'
-      : 'Tuned llama.cpp router: OFF — click to enable tuned serving (256K window, n-gram lookup drafting)',
     children: [
-      label,
-      // Nested so the router toggle stays the chip's primary click.
+      jsx('span', {
+        onClick: (e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          if (busy) return
+          // optimistic paint so the click feels immediate
+          queryClient.setQueryData(STATUS_KEY, { ...data, busy: true })
+          api('/mode', { method: 'POST', body: { enabled: !on } })
+            .catch(() => {})
+            .finally(() => {
+              queryClient.invalidateQueries({ queryKey: STATUS_KEY })
+              refetch()
+            })
+        },
+        style: { cursor: 'pointer' },
+        title: on
+          ? 'Tuned llama.cpp router: ON — click to disable (managed runtime takes over)'
+          : 'Tuned llama.cpp router: OFF — click to enable tuned serving (256K window, n-gram lookup drafting)',
+        children: label,
+      }),
       jsx('span', {
         onClick: (e) => {
           e.preventDefault()
@@ -89,7 +96,7 @@ function Chip({ api }) {
             })
         },
         style: {
-          marginLeft: 6, padding: '0 4px', borderRadius: 3, fontSize: 10,
+          padding: '0 4px', borderRadius: 3, fontSize: 10, cursor: 'pointer',
           border: '1px solid currentColor', opacity: wgBypass ? 1 : 0.6,
           color: wgBypass ? 'var(--ui-warn, var(--ui-text-secondary))' : 'inherit',
         },
