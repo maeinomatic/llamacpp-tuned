@@ -1,21 +1,32 @@
 /**
- * Tuned Local Llama.cpp — statusbar chip.
- * ON = tuned llama.cpp router (b12255) serving the staged Qwen3.5 models with
- * n-gram lookup drafting / q4 KV / full-window 35B MoE preset. OFF = managed
- * Hermes runtime is used as usual. Backend: /api/plugins/llamacpp-tuned/.
+ * Tuned Local Llama.cpp — two statusbar chips.
+ * "LLM …"  ON = tuned llama.cpp router (b12255) serving the staged Qwen3.5 models with
+ *          n-gram lookup drafting / q4 KV / full-window MoE presets. OFF = managed
+ *          Hermes runtime is used as usual.
+ * "WG …"   Opt-in bypass of Hermes' read-before-write guard, scoped by the plugin's
+ *          hooks to write_file/patch calls from sessions on the staged local models
+ *          (Codex and every other provider keep the guard).
+ * Registered as TWO items, each with a single click handler on its own root element:
+ * a handler nested inside the router chip did not fire in the packaged Desktop (no
+ * /file-guard request ever reached the backend), so the controls must not share an
+ * element. Backend: /api/plugins/llamacpp-tuned/.
  */
 import { cn, STATUSBAR_AREAS, queryClient, useQuery, useValue, host } from '@hermes/plugin-sdk'
 import { jsx } from 'react/jsx-runtime'
 
 const STATUS_KEY = ['llamacpp-tuned-status']
 
-function Chip({ api }) {
-  const { data, isLoading, isError, refetch } = useQuery({
+function useStatus(api, refetchInterval) {
+  return useQuery({
     queryKey: STATUS_KEY,
     queryFn: () => api('/status'),
-    refetchInterval: 10_000,
+    refetchInterval,
     retry: 1,
   })
+}
+
+function Chip({ api }) {
+  const { data, isLoading, isError, refetch } = useStatus(api, 10_000)
   // Pre-load the focused session's model when it's one of the router's staged
   // models, so Hermes' chat request arrives to a warm model instead of dying
   // in a multi-minute cold-load retry loop.
@@ -36,9 +47,6 @@ function Chip({ api }) {
   }
   const busy = isLoading || data?.busy
   const on = data?.enabled
-  // Opt-in bypass, scoped by the plugin's hooks to write calls from sessions on
-  // the router's staged local models — Codex and other providers keep the guard.
-  const wgBypass = data?.write_guard_local_bypass ?? false
   const loaded = (data?.loaded || []).length
   const loading = (data?.loading || []).length
   const progress = data?.progress || {}
@@ -53,59 +61,56 @@ function Chip({ api }) {
     : on && loading ? 'var(--ui-warn, var(--ui-text-secondary))'
     : on ? 'var(--ui-green, var(--ui-text-secondary))'
     : 'var(--ui-text-quaternary)'
-  // The two controls are SIBLINGS, never nested: a click on the WG segment must not
-  // be able to reach a router-mode handler at all. The statusbar wrapper carries no
-  // click handler of its own, so no propagation trick is needed (and stopPropagation
-  // alone was not enough here).
   return jsx('div', {
+    onClick: (e) => {
+      e.preventDefault()
+      if (busy) return
+      // optimistic paint so the click feels immediate
+      queryClient.setQueryData(STATUS_KEY, { ...data, busy: true })
+      api('/mode', { method: 'POST', body: { enabled: !on } })
+        .catch(() => {})
+        .finally(() => {
+          queryClient.invalidateQueries({ queryKey: STATUS_KEY })
+          refetch()
+        })
+    },
     style: {
-      display: 'flex', alignItems: 'center', gap: 6,
+      display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer',
       padding: '0 8px', fontSize: 11, whiteSpace: 'nowrap', userSelect: 'none',
       color,
     },
-    children: [
-      jsx('span', {
-        onClick: (e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          if (busy) return
-          // optimistic paint so the click feels immediate
-          queryClient.setQueryData(STATUS_KEY, { ...data, busy: true })
-          api('/mode', { method: 'POST', body: { enabled: !on } })
-            .catch(() => {})
-            .finally(() => {
-              queryClient.invalidateQueries({ queryKey: STATUS_KEY })
-              refetch()
-            })
-        },
-        style: { cursor: 'pointer' },
-        title: on
-          ? 'Tuned llama.cpp router: ON — click to disable (managed runtime takes over)'
-          : 'Tuned llama.cpp router: OFF — click to enable tuned serving (256K window, n-gram lookup drafting)',
-        children: label,
-      }),
-      jsx('span', {
-        onClick: (e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          api('/file-guard', { method: 'POST', body: { enabled: !wgBypass } })
-            .catch(() => {})
-            .finally(() => {
-              queryClient.invalidateQueries({ queryKey: STATUS_KEY })
-              refetch()
-            })
-        },
-        style: {
-          padding: '0 4px', borderRadius: 3, fontSize: 10, cursor: 'pointer',
-          border: '1px solid currentColor', opacity: wgBypass ? 1 : 0.6,
-          color: wgBypass ? 'var(--ui-warn, var(--ui-text-secondary))' : 'inherit',
-        },
-        title: wgBypass
-          ? 'Write guard: BYPASSED for staged local-router models — write_file/patch from those sessions stop refusing overwrites it cannot baseline (the Windows fstat/st_ctime bug). Codex and every other provider keep the guard. Click to restore it everywhere.'
-          : 'Write guard: ON (default) for every provider. Click to let staged local-router sessions bypass it if write_file keeps refusing legitimate overwrites with "has not seen its full current content" — Codex is not affected either way.',
-        children: wgBypass ? 'WG local' : 'WG on',
-      }),
-    ],
+    title: on
+      ? 'Tuned llama.cpp router: ON — click to disable (managed runtime takes over)'
+      : 'Tuned llama.cpp router: OFF — click to enable tuned serving (256K window, n-gram lookup drafting)',
+    children: label,
+  })
+}
+
+function WgChip({ api }) {
+  // Same query key as the router chip, so one poll feeds both.
+  const { data, refetch } = useStatus(api, 30_000)
+  const bypass = data?.write_guard_local_bypass ?? false
+  return jsx('div', {
+    onClick: (e) => {
+      e.preventDefault()
+      api('/file-guard', { method: 'POST', body: { enabled: !bypass } })
+        .catch(() => {})
+        .finally(() => {
+          queryClient.invalidateQueries({ queryKey: STATUS_KEY })
+          refetch()
+        })
+    },
+    style: {
+      display: 'flex', alignItems: 'center', cursor: 'pointer',
+      padding: '0 6px', fontSize: 10, whiteSpace: 'nowrap', userSelect: 'none',
+      color: bypass
+        ? 'var(--ui-warn, var(--ui-text-secondary))'
+        : 'var(--ui-text-quaternary)',
+    },
+    title: bypass
+      ? 'Write guard: BYPASSED for staged local-router models — write_file/patch from those sessions stop refusing overwrites it cannot baseline (the Windows fstat/st_ctime bug). Codex and every other provider keep the guard. Click to restore it everywhere.'
+      : 'Write guard: ON (default) for every provider. Click to let staged local-router sessions bypass it if write_file keeps refusing legitimate overwrites with "has not seen its full current content" — Codex is not affected either way.',
+    children: bypass ? 'WG local' : 'WG on',
   })
 }
 
@@ -119,6 +124,10 @@ export function register(ctx) {
   ctx.register({
     id: 'llamacpp-tuned-chip', area: STATUSBAR_AREAS.right, order: 50,
     render: () => jsx(Chip, { api }),
+  })
+  ctx.register({
+    id: 'llamacpp-tuned-wg', area: STATUSBAR_AREAS.right, order: 51,
+    render: () => jsx(WgChip, { api }),
   })
 }
 
