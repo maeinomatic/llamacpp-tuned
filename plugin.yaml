@@ -1,10 +1,10 @@
 name: llamacpp-tuned
 label: Tuned Local Llama.cpp
 version: 1.0.0
-description: "Runs the tuned llama.cpp router (b12255) for the staged Qwen3.5 models: n-gram lookup drafting, q4 KV, full 256K window for the 35B-A3B MoE. Starts on demand via the status-bar chip, unloads after 15 min idle, and dies with Hermes via a Windows job object. No core patches."
+description: "Runs the tuned llama.cpp router (b12255) for the staged Qwen3.5 models: n-gram lookup drafting, q4 KV, full 256K window for the 35B-A3B MoE. Starts on demand via the status-bar chip, unloads after 15 min idle, and dies with Hermes via a Windows job object. No core patches. The chip's WG segment is an opt-in, off-by-default bypass of Hermes' read-before-write guard, scoped to write_file/patch calls from sessions on the staged local models so Codex and other providers keep the guard."
 author: Martin
 license: MIT
 capabilities: []
 provides_tools: []
-provides_hooks: []
+provides_hooks: [pre_llm_call, pre_tool_call, post_tool_call]
 requires_env: []

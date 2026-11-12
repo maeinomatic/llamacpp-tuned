@@ -119,6 +119,7 @@ per-machine — it is never committed). All keys are optional:
 | `poll_s` | `60` | Idle-check interval. |
 | `moe_ctx_cap` | `262144` | Context ceiling for MoE models (further capped by what q4 KV fits in VRAM). |
 | `dense_ctx` | `32768` | Context ceiling for dense models. |
+| `local_write_guard_bypass` | `false` | Opt-in bypass of Hermes' read-before-write guard, applied **only** around a `write_file`/`patch` call made by a session running one of the staged local models (the status-bar chip's `WG` segment, `POST /file-guard`). Workaround for this filesystem's `os.fstat`/`os.stat` `st_ctime_ns` mismatch, which stops the guard recording a whole-file baseline so it refuses overwrites of files the session just wrote or read. Codex, Copilot, OpenRouter and every other provider keep the guard — nothing is set process-wide. Toggling it needs no restart; the hooks read this key on the next tool call. |
 
 Example — use an existing Vulkan/ROCm build on another machine:
 
@@ -162,10 +163,14 @@ Reference for what this plugin was built and validated against:
     ~44 tok/s chat baseline → 72–100 tok/s tuned, 99.8 tok/s on lookup-heavy work (2.4×)
   - `Qwen3.5-9B` Q4_K_M — dense, doesn't fit → FFN-CPU split, q8 KV, 32K ctx
   - `Qwen3.5-4B` Q4_K_M — dense, fully in VRAM, q8 KV, 32K ctx
-  - `Qwen3-Next-80B-A3B` IQ4_XS — MoE recipe generated, but the auto-computed 256K window
-    needs ~15 GiB VRAM (its full-attention layers cost ~98 KB/token) — **does not fit an
-    8 GB card**; cap its `ctx-size` (~64–90K) by hand or with `moe_ctx_cap` until the
-    generator's cross-check lands
+  - `Qwen3-Next-80B-A3B` IQ4_XS — MoE recipe with the **full 256K window on the 8 GB
+    card**: q4 KV for its 12 full-attention layers is ~3.0 GiB, 5.6 GiB VRAM total,
+    verified by loading it. Core's layer classifier calls a layer recurrent only when the
+    file gives it zero KV heads; qwen3next files declare the hybrid split in
+    `recurrent_blocks` instead, so all 48 layers were charged per-token KV (~98 KB/token)
+    and the auto-computed window came out ~87K. The generator now re-derives the charge
+    from `recurrent_blocks` (12 × 2 KB/token ≈ 24 KB/token), which matches measurement;
+    every other model's preset is byte-identical.
 - **Benchmarks**: llama-server `/completion`, greedy (`temperature: 0`), 256–512 tokens,
   timings from the response object; SPEED-Bench-style chat/code/math/doc-copy prompts
 

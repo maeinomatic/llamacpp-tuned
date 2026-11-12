@@ -36,6 +36,9 @@ function Chip({ api }) {
   }
   const busy = isLoading || data?.busy
   const on = data?.enabled
+  // Opt-in bypass, scoped by the plugin's hooks to write calls from sessions on
+  // the router's staged local models — Codex and other providers keep the guard.
+  const wgBypass = data?.write_guard_local_bypass ?? false
   const loaded = (data?.loaded || []).length
   const loading = (data?.loading || []).length
   const progress = data?.progress || {}
@@ -71,7 +74,31 @@ function Chip({ api }) {
     title: on
       ? 'Tuned llama.cpp router: ON — click to disable (managed runtime takes over)'
       : 'Tuned llama.cpp router: OFF — click to enable tuned serving (256K window, n-gram lookup drafting)',
-    children: label,
+    children: [
+      label,
+      // Nested so the router toggle stays the chip's primary click.
+      jsx('span', {
+        onClick: (e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          api('/file-guard', { method: 'POST', body: { enabled: !wgBypass } })
+            .catch(() => {})
+            .finally(() => {
+              queryClient.invalidateQueries({ queryKey: STATUS_KEY })
+              refetch()
+            })
+        },
+        style: {
+          marginLeft: 6, padding: '0 4px', borderRadius: 3, fontSize: 10,
+          border: '1px solid currentColor', opacity: wgBypass ? 1 : 0.6,
+          color: wgBypass ? 'var(--ui-warn, var(--ui-text-secondary))' : 'inherit',
+        },
+        title: wgBypass
+          ? 'Write guard: BYPASSED for staged local-router models — write_file/patch from those sessions stop refusing overwrites it cannot baseline (the Windows fstat/st_ctime bug). Codex and every other provider keep the guard. Click to restore it everywhere.'
+          : 'Write guard: ON (default) for every provider. Click to let staged local-router sessions bypass it if write_file keeps refusing legitimate overwrites with "has not seen its full current content" — Codex is not affected either way.',
+        children: wgBypass ? 'WG local' : 'WG on',
+      }),
+    ],
   })
 }
 

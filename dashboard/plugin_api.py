@@ -61,8 +61,17 @@ ENGINE_ASSETS = {  # (system, nvidia?) -> release asset name
     ("Linux", False): "llama-{tag}-bin-ubuntu-x64.tar.gz",
 }
 
+GUARD_ENV = "HERMES_DISABLE_FILE_STATE_GUARD"
+GUARD_SETTING = "local_write_guard_bypass"
+
 DEFAULTS = {"port": 8080, "idle_unload_s": 900, "poll_s": 60,
             "moe_ctx_cap": 262144, "dense_ctx": 32768,
+            # Opt-in workaround (chip toggle), OFF by default. The plugin's hooks
+            # scope it to write calls from sessions on the router's staged local
+            # models: this filesystem's os.fstat/os.stat st_ctime_ns mismatch stops
+            # the guard recording a whole-file baseline, so write_file refuses
+            # legitimate overwrites. Sessions on other providers keep the guard.
+            "local_write_guard_bypass": False,
             # Optional overrides for non-default machines (settings.json):
             # "engine_path": "<path to an existing llama-server binary>" —
             #   wins over everything (use your own CUDA/Vulkan/ROCm build);
@@ -83,6 +92,26 @@ def _settings() -> dict:
         return {**DEFAULTS, **json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))}
     except Exception:
         return dict(DEFAULTS)
+
+
+def _bypass_setting() -> bool:
+    """The persisted chip choice. The ENV variable itself is not touched here:
+    the plugin's pre_tool_call hook owns it, scoped to local-model write calls.
+    """
+    return bool(_settings().get(GUARD_SETTING, False))
+
+
+def _write_settings(patch: dict) -> None:
+    """Merge *patch* into settings.json, preserving the machine overrides there."""
+    try:
+        data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    data.update(patch)
+    SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SETTINGS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 # -- engine acquisition ---------------------------------------------------
@@ -212,6 +241,18 @@ def _generate_presets() -> int:
         model_id = model_id_from_stem(gguf.stem)
         native_ctx = profile.n_ctx_train or 32768
         kv_per_tok = max(profile.per_token_kv_f16, 1)
+        # Core's layer classifier marks a layer RECURRENT only when the file gives it
+        # zero KV heads. qwen3next (Qwen3-Next-80B) instead declares its hybrid split
+        # in `recurrent_blocks`, which the classifier ignores, so every layer — including
+        # the ~36 Gated-DeltaNet layers whose state is constant, not a growing KV cache —
+        # is charged per-token KV. That overcharged the 80B ~4x (98304 B/token instead of
+        # 24576) and would have cut its window from 256K to ~87K. Re-derive from the
+        # blocks the file actually declares; verified on an 8 GB RTX 3070: the corrected
+        # 256K preset loads (q4 KV, 5.6 GiB VRAM).
+        n_recurrent = len(header.recurrent_blocks)
+        if n_recurrent and not profile.recurrent_layer_count and profile.layers:
+            per_layer = kv_per_tok / len(profile.layers)
+            kv_per_tok = max(int(round(per_layer * (len(profile.layers) - n_recurrent))), 1)
         keys = {"model": str(gguf).replace("\\", "/"),
                 "flash-attn": "on", "ubatch-size": "512"}
         if profile.moe:
@@ -493,6 +534,10 @@ def _read_state():
             "engine": engine,
             "engine_ready": Path(engine).is_file(),
             "engine_progress": dict(_state),
+            "write_guard_local_bypass": _bypass_setting(),
+            # Raw env value: "" / "0" = guard active, "1" = bypass live right now.
+            # The hook holds "1" only while a local-model write call is executing.
+            "write_guard_env": os.environ.get(GUARD_ENV, ""),
             "busy": _operation.locked()}
 
 
@@ -585,3 +630,27 @@ async def set_mode(body: ModeRequest):
         return state
     finally:
         _operation.release()
+
+
+class FileGuardRequest(BaseModel):
+    enabled: StrictBool
+
+
+@router.post("/file-guard")
+async def set_file_guard(body: FileGuardRequest):
+    """Chip toggle for the LOCAL-MODEL write-guard bypass.
+
+    OFF (default) leaves Hermes' read-before-write guard exactly as shipped. ON
+    lets the plugin's pre_tool_call hook set HERMES_DISABLE_FILE_STATE_GUARD for
+    the duration of a write_file/patch call whose session runs one of this
+    router's staged local models — the workaround for a filesystem where the guard
+    can never record a whole-file baseline. Sessions on any other provider (Codex,
+    Copilot, OpenRouter, ...) keep the guard; nothing is set globally.
+
+    The choice persists in settings.json and the hooks pick it up on the next tool
+    call, so no gateway restart is involved."""
+    _write_settings({GUARD_SETTING: bool(body.enabled)})
+    state = _read_state()
+    if state["write_guard_local_bypass"] != bool(body.enabled):
+        raise HTTPException(502, "Read-back did not confirm the write-guard setting.")
+    return state
