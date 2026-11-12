@@ -198,6 +198,7 @@ def _generate_presets() -> int:
     """Write a tuned section for every staged GGUF. Returns the count."""
     model_id_from_stem, read_gguf_header, profile_from_gguf = _gguf_tools()
     vram = _vram_bytes()
+    s = _settings()
     reserve = 2 << 30  # compute buffers + headroom
     sections, count = [], 0
     for gguf in sorted(MODELS_DIR.glob("*.gguf")):
@@ -219,7 +220,7 @@ def _generate_presets() -> int:
             keys["override-tensor"] = r"blk\.\d+\.ffn_.*_exps\.weight=CPU"
             keys["cache-type-k"] = keys["cache-type-v"] = "q4_0"
             budget_kv = max(vram - reserve, 512 << 20)
-            ctx = min(native_ctx, int(DEFAULTS["moe_ctx_cap"]),
+            ctx = min(native_ctx, int(s["moe_ctx_cap"]),
                       int(budget_kv // (kv_per_tok * 0.5)))
             ctx = max(min(ctx, native_ctx), 4096)
             keys["ctx-size"] = str(ctx)
@@ -230,7 +231,7 @@ def _generate_presets() -> int:
         else:
             w = profile.weights_bytes
             if w + reserve <= vram:
-                keys["ctx-size"] = str(min(native_ctx, DEFAULTS["dense_ctx"]))
+                keys["ctx-size"] = str(min(native_ctx, int(s["dense_ctx"])))
                 keys["cache-type-k"] = keys["cache-type-v"] = "q8_0"
             else:
                 # dense too big: FFN layers to CPU (attention split), q8 KV
@@ -238,7 +239,7 @@ def _generate_presets() -> int:
                 keys["cache-type-k"] = keys["cache-type-v"] = "q8_0"
                 keys["load-mode"] = "none"
                 budget_kv = max(vram - reserve - w, 256 << 20)
-                ctx = min(native_ctx, DEFAULTS["dense_ctx"],
+                ctx = min(native_ctx, int(s["dense_ctx"]),
                           int(budget_kv // kv_per_tok))
                 keys["ctx-size"] = str(max(ctx, 4096))
         body = "\n".join(f"{k} = {v}" for k, v in keys.items())
