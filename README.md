@@ -48,13 +48,23 @@ flags need roughly b12000+; b12255 is what we test).
 1. Clone it into the Hermes plugins folder (or copy the folder there):
 
    ```bash
-   # Windows
+   # Windows (cmd)
    git clone https://github.com/maeinomatic/llamacpp-tuned "%LOCALAPPDATA%\hermes\plugins\llamacpp-tuned"
+   # Windows (PowerShell)
+   git clone https://github.com/maeinomatic/llamacpp-tuned "$env:LOCALAPPDATA\hermes\plugins\llamacpp-tuned"
    # Linux
    git clone https://github.com/maeinomatic/llamacpp-tuned ~/.hermes/plugins/llamacpp-tuned
    ```
 
-   Then enable it (`hermes plugins enable llamacpp-tuned` + Desktop → Plugins toggle).
+   The directory is not optional — Hermes discovers plugins by scanning
+   `%LOCALAPPDATA%\hermes\plugins\<plugin-id>\` (or `~/.hermes/plugins/<id>` on
+   Linux), and the folder name must equal the plugin id (`llamacpp-tuned`,
+   which it is, since you're cloning the repo under that name). The target
+   must not already exist — if you created an empty folder first, clone
+   elsewhere and move the contents in.
+
+   Then enable it (`hermes plugins enable llamacpp-tuned` + Desktop → Plugins
+   toggle) and hit ⌘K → *Reload desktop plugins* for the chip.
 2. **Use your existing llama.cpp build** — write `settings.json` next to
    `plugin_api.py`:
 
