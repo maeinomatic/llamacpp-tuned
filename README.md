@@ -18,10 +18,11 @@ Measured on the RTX 3070 (see BENCHMARK notes below), versus llama.cpp defaults:
 | Document/RAG (lookup-heavy), 128K | 38 tok/s | 73 tok/s | ~1.9× |
 | Full 256K window | 22 tok/s | 60–82 tok/s | ~3.7× |
 
-Tuned recipe for the Qwen3.5-35B-A3B MoE (see `dashboard/tuned-presets.ini`):
+Tuned recipe for the Qwen3.5-35B-A3B MoE (see "How presets are generated" below):
 - **All expert MLPs offloaded to system RAM** (`--override-tensor blk\.\d+\.ffn_.*_exps\.weight=CPU`),
   attention on GPU — makes the full 256K context fit in 8 GB VRAM (~5.5 GB used under load)
-- **`--no-mmap`** — a real load phase instead of lazy page-fault crawling during generation
+- **`--load-mode none`** — a real load phase with visible progress, instead of mmap's lazy
+  page-fault crawling during generation
 - **q4_0 KV cache**, flash attention, ubatch 512
 - **n-gram lookup speculative drafting** (`--spec-type ngram-mod`, n-max 10) — ~2.4× on
   answers that reuse prompt text (RAG, code edits, quoting); no help on novel chat text
@@ -66,20 +67,29 @@ flags need roughly b12000+; b12255 is what we test).
    the generated `presets.ini` behavior via `settings.json` caps
    (`moe_ctx_cap`, `dense_ctx`, `port`, `idle_unload_s`).
 
-## Install (reference, original machine)
+## Requirements
 
-Requirements: Windows, NVIDIA GPU + CUDA-capable llama.cpp build at
-`%LOCALAPPDATA%\hermes\llamacpp-bench\llama-server.exe` (any recent build with router mode,
-`ngram-mod` spec decoding and `--models-sse`; b12255 used here), models staged in
-`%LOCALAPPDATA%\hermes\models\` as GGUFs.
+- Hermes Agent (Desktop app; agent plugin + desktop chip)
+- A llama.cpp build with router mode and `ngram-mod` speculative decoding
+  (b12255 is what we test — either point `engine_path` at yours or let the
+  plugin download one)
+- Models staged in Hermes' Local Models pane as GGUFs
 
-1. Copy/symlink this folder into `%LOCALAPPDATA%\hermes\plugins\llamacpp-tuned\`
-   (`mklink /J` works well so the repo stays the single source of truth).
-2. `hermes plugins enable llamacpp-tuned` **and** flip it on in Desktop → Plugins.
-3. ⌘K → *Reload desktop plugins*; click the chip ON.
+## How presets are generated
 
-Adapt `dashboard/tuned-presets.ini` to your own models: one INI section per GGUF with any
-llama.cpp flags in kebab-case (`ctx-size`, `cache-type-k`, `spec-type`, `override-tensor`, …).
+At every router start the backend scans Hermes' models directory, reads each
+GGUF header and writes a per-model section into
+`HERMES_HOME/runtimes/llamacpp-tuned/presets.ini`:
+
+- **MoE** (experts detected in the header): expert MLPs to RAM, attention on
+  GPU, q4_0 KV, `load-mode none`, ngram lookup drafting (n-max 10), context =
+  min(native window, `moe_ctx_cap`, what q4 KV fits in VRAM)
+- **Dense that fits VRAM**: fully on GPU, q8_0 KV, context capped to `dense_ctx`
+- **Dense too big**: FFN layers to CPU (attention split), q8_0 KV, context
+  sized from the remaining VRAM
+
+Tune the knobs via `dashboard/settings.json` (gitignored, per-machine):
+`port`, `idle_unload_s`, `moe_ctx_cap`, `dense_ctx`, `engine_path`, `backend`.
 
 ## Repo layout
 
@@ -87,9 +97,12 @@ llama.cpp flags in kebab-case (`ctx-size`, `cache-type-k`, `spec-type`, `overrid
 plugin.yaml            Hermes agent-plugin manifest
 __init__.py            package marker + no-op register()
 dashboard/             agent half (FastAPI backend mounted at /api/plugins/llamacpp-tuned)
-  plugin_api.py        router supervisor: spawn/stop, pre-load, idle sweeper, SSE progress
-  tuned-presets.ini    per-model llama.cpp launch flags
+  plugin_api.py        router supervisor: engine download, preset generation, spawn/stop,
+                       pre-load, idle sweeper, SSE progress, watchdog
+  tuned-presets.ini    example launch flags (the live INI is generated per machine into
+                       HERMES_HOME/runtimes/llamacpp-tuned/presets.ini at router start)
   manifest.json        dashboard API manifest
+  settings.json        per-machine overrides (gitignored; create as needed)
 desktop/               Desktop half (status-bar chip, hot-reloaded)
   plugin.js
 ```
