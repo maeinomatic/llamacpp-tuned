@@ -88,8 +88,32 @@ GGUF header and writes a per-model section into
 - **Dense too big**: FFN layers to CPU (attention split), q8_0 KV, context
   sized from the remaining VRAM
 
-Tune the knobs via `dashboard/settings.json` (gitignored, per-machine):
-`port`, `idle_unload_s`, `moe_ctx_cap`, `dense_ctx`, `engine_path`, `backend`.
+## Configuration (`dashboard/settings.json`)
+
+Create `settings.json` next to `plugin_api.py` to override defaults (gitignored,
+per-machine — it is never committed). All keys are optional:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `engine_path` | *(empty)* | Full path to an existing `llama-server` binary (CUDA/Vulkan/ROCm/any build). **Wins over every other engine source** — this is how you use your own llama.cpp. |
+| `backend` | *(auto)* | Which llama.cpp release asset `/install` downloads: `cuda` (auto when `nvidia-smi` is present), `vulkan`, or `cpu`. `rocm` maps to the Vulkan build (no official HIP assets exist). |
+| `port` | `8080` | Port for the router. 8080 is Hermes' default external-server probe port. |
+| `idle_unload_s` | `900` | Seconds without token activity before a loaded model is unloaded to free VRAM. |
+| `poll_s` | `60` | Idle-check interval. |
+| `moe_ctx_cap` | `262144` | Context ceiling for MoE models (further capped by what q4 KV fits in VRAM). |
+| `dense_ctx` | `32768` | Context ceiling for dense models. |
+
+Example — use an existing Vulkan/ROCm build on another machine:
+
+```json
+{
+  "engine_path": "D:/tools/llama.cpp/llama-server.exe",
+  "idle_unload_s": 600
+}
+```
+
+Nothing else is machine-specific: every other path (models directory, runtimes,
+logs, preset file) is derived from Hermes' own home directory at runtime.
 
 ## Repo layout
 
