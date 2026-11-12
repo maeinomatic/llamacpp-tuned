@@ -61,17 +61,19 @@ ENGINE_ASSETS = {  # (system, nvidia?) -> release asset name
     ("Linux", False): "llama-{tag}-bin-ubuntu-x64.tar.gz",
 }
 
-GUARD_ENV = "HERMES_DISABLE_FILE_STATE_GUARD"
-GUARD_SETTING = "local_write_guard_bypass"
+GUARD_SETTING = "local_guard_fix"
+LEGACY_GUARD_SETTING = "local_write_guard_bypass"   # same opt-in under its old name
 
 DEFAULTS = {"port": 8080, "idle_unload_s": 900, "poll_s": 60,
             "moe_ctx_cap": 262144, "dense_ctx": 32768,
-            # Opt-in workaround (chip toggle), OFF by default. The plugin's hooks
-            # scope it to write calls from sessions on the router's staged local
-            # models: this filesystem's os.fstat/os.stat st_ctime_ns mismatch stops
-            # the guard recording a whole-file baseline, so write_file refuses
-            # legitimate overwrites. Sessions on other providers keep the guard.
-            "local_write_guard_bypass": False,
+            # Opt-in fix (chip toggle), OFF by default. While a write_file/patch call
+            # from a session on one of the staged local models is executing, the
+            # plugin rebinds the guard's snapshot helper to a version that takes ONE
+            # metadata view (os.stat) and leaves byte identity to its sha256 -- this
+            # filesystem's os.fstat/os.stat st_ctime_ns mismatch otherwise stops the
+            # guard recording a whole-file baseline, so write_file refuses legitimate
+            # overwrites. Sessions on other providers keep the shipped helper.
+            "local_guard_fix": False,
             # Optional overrides for non-default machines (settings.json):
             # "engine_path": "<path to an existing llama-server binary>" —
             #   wins over everything (use your own CUDA/Vulkan/ROCm build);
@@ -95,10 +97,12 @@ def _settings() -> dict:
 
 
 def _bypass_setting() -> bool:
-    """The persisted chip choice. The ENV variable itself is not touched here:
-    the plugin's pre_tool_call hook owns it, scoped to local-model write calls.
+    """The persisted chip choice (accepting the pre-rename key). The guard itself is
+    untouched here: the plugin's pre_tool_call hook applies or removes the corrected
+    snapshot helper, scoped to write calls from local-model sessions.
     """
-    return bool(_settings().get(GUARD_SETTING, False))
+    s = _settings()
+    return bool(s.get(GUARD_SETTING, s.get(LEGACY_GUARD_SETTING, False)))
 
 
 def _write_settings(patch: dict) -> None:
@@ -534,10 +538,7 @@ def _read_state():
             "engine": engine,
             "engine_ready": Path(engine).is_file(),
             "engine_progress": dict(_state),
-            "write_guard_local_bypass": _bypass_setting(),
-            # Raw env value: "" / "0" = guard active, "1" = bypass live right now.
-            # The hook holds "1" only while a local-model write call is executing.
-            "write_guard_env": os.environ.get(GUARD_ENV, ""),
+            "local_guard_fix": _bypass_setting(),
             "busy": _operation.locked()}
 
 
@@ -638,19 +639,20 @@ class FileGuardRequest(BaseModel):
 
 @router.post("/file-guard")
 async def set_file_guard(body: FileGuardRequest):
-    """Chip toggle for the LOCAL-MODEL write-guard bypass.
+    """Chip toggle for the LOCAL-MODEL guard fix.
 
-    OFF (default) leaves Hermes' read-before-write guard exactly as shipped. ON
-    lets the plugin's pre_tool_call hook set HERMES_DISABLE_FILE_STATE_GUARD for
-    the duration of a write_file/patch call whose session runs one of this
-    router's staged local models — the workaround for a filesystem where the guard
-    can never record a whole-file baseline. Sessions on any other provider (Codex,
-    Copilot, OpenRouter, ...) keep the guard; nothing is set globally.
+    OFF (default) leaves Hermes' read-before-write guard exactly as shipped. ON lets
+    the plugin's pre_tool_call hook rebind the guard's snapshot helper -- only while a
+    write_file/patch call from a session on one of this router's staged local models is
+    executing -- to a version that takes one consistent metadata view and leaves byte
+    identity to its sha256. That is the fix for a filesystem where the guard can never
+    record a whole-file baseline. Sessions on any other provider (Codex, Copilot,
+    OpenRouter, ...) keep the shipped helper.
 
     The choice persists in settings.json and the hooks pick it up on the next tool
     call, so no gateway restart is involved."""
     _write_settings({GUARD_SETTING: bool(body.enabled)})
     state = _read_state()
-    if state["write_guard_local_bypass"] != bool(body.enabled):
+    if state["local_guard_fix"] != bool(body.enabled):
         raise HTTPException(502, "Read-back did not confirm the write-guard setting.")
     return state

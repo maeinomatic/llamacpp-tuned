@@ -1,38 +1,53 @@
 """Tuned Llama.cpp: API, Desktop UI, and one scoped hook pair.
 
-The chip's WG segment is an opt-in, OFF-by-default workaround for Hermes'
-read-before-write guard on this filesystem: os.fstat and os.stat disagree on
-st_ctime_ns here, so the guard can never record a whole-file baseline and
-write_file refuses legitimate overwrites of files the session just wrote or read.
+Hermes' read-before-write guard can never establish a whole-file baseline on this
+filesystem. tools/file_tools_read_tracking._file_version() builds its snapshot with
+os.fstat(fd) and requires it to equal os.stat(path) field by field -- including
+st_ctime_ns. On Windows those two Win32 calls report DIFFERENT timestamps in that
+slot (path lookup -> creation time, open handle -> change time), so the equality can
+only hold for a file never modified since creation. Everywhere else the function
+returns None, no write baseline is ever recorded, and write_file refuses legitimate
+overwrites with "has not seen its full current content".
 
-The guard re-reads HERMES_DISABLE_FILE_STATE_GUARD on every call and that variable
-is PROCESS-WIDE, so it is never set globally here. `pre_llm_call` records each
-session's model; `pre_tool_call`/`post_tool_call` set the variable only for the
-duration of a write_file/patch call whose session runs one of the router's staged
-local models. Codex and every other provider keep the guard untouched. While the
-switch is on the pre hook rewrites the variable on every call, so a call that
-never reaches post_tool_call (approval refusal, crash) cannot leave a stale "1".
+The chip's WG segment (settings.json: local_guard_fix, OFF by default) makes the
+guard WORK again -- for local sessions only -- by rebinding that one helper, for the
+duration of a write_file/patch call from a session on a staged local model, to a
+version that takes ONE metadata view (os.stat, the same one _file_metadata uses) and
+leaves byte identity to the sha256 it already computes. A genuinely stale overwrite
+(digest mismatch) or a file that changed mid-read is still refused. Codex, Copilot,
+OpenRouter and every other provider keep the shipped helper untouched.
+
+The rebinding targets a private helper, so it FAILS OPEN: if the module or function is
+missing, or the corrected version cannot be confirmed on this filesystem, the plugin
+restores what it touched, leaves core alone, and the WG segment reports that it could
+not be applied.
 """
+import hashlib
 import json
 import os
+import stat
+import tempfile
 import time
 from collections import OrderedDict
 from pathlib import Path
 
-GUARD_ENV = "HERMES_DISABLE_FILE_STATE_GUARD"
-SETTING = "local_write_guard_bypass"
+SETTING = "local_guard_fix"
+LEGACY_SETTING = "local_write_guard_bypass"   # pre-rename key: same opt-in, kept alive
 SETTINGS_FILE = Path(__file__).parent / "dashboard" / "settings.json"
-
-# Tool calls that touch the guard's read-before-write baseline.
 GUARDED_TOOLS = ("write_file", "patch")
 _SESSION_CAP = 512
 _MODEL_CACHE_TTL_S = 60.0
+_HELPER = "_file_version"
+_OURS = "_consistent_file_version"
 
 _session_models: "OrderedDict[str, str]" = OrderedDict()
 _settings_cache = {"mtime_ns": None, "enabled": False}
 _models_cache = {"ts": 0.0, "ids": frozenset()}
+_installed: tuple = ()          # ((module, name, original), ...) while the fix is live
+_last_error = ""
 
 
+# ── settings / staged models ─────────────────────────────────────────────
 def _models_dir() -> Path:
     try:
         from hermes_constants import get_hermes_home
@@ -75,15 +90,125 @@ def _enabled() -> bool:
     if _settings_cache["mtime_ns"] != mtime:
         try:
             data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
-            enabled = bool(data.get(SETTING, False))
+            enabled = bool(data.get(SETTING, data.get(LEGACY_SETTING, False)))
         except Exception:
             enabled = False
         _settings_cache.update(mtime_ns=mtime, enabled=enabled)
     return bool(_settings_cache["enabled"])
 
 
+# ── the corrected helper ─────────────────────────────────────────────────
+def _consistent_file_version(resolved):
+    """``_file_version`` with ONE metadata view instead of two syscalls.
+
+    Fields 0-4 come from os.stat -- exactly what _file_metadata() returns, so every
+    existing equality (version[:-1] == metadata, baseline comparisons, dedup keys)
+    keeps its meaning. The open handle is used only to hash the bytes, and "changed
+    during the read" is decided on (dev, ino, size, mtime_ns), which Windows reports
+    consistently. The sha256 still decides byte identity, so a stale overwrite is
+    refused exactly as before.
+    """
+    key = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    try:
+        before = os.stat(resolved)
+        if not stat.S_ISREG(before.st_mode):
+            return None
+        fd = os.open(resolved, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0)
+                     | getattr(os, "O_BINARY", 0))
+        with os.fdopen(fd, "rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").digest()
+        after = os.stat(resolved)
+    except OSError:
+        return None
+    if tuple(getattr(before, f) for f in key) != tuple(getattr(after, f) for f in key):
+        return None                      # changed while we were reading it
+    return (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns,
+            after.st_ctime_ns, digest)
+
+
+def _self_check() -> bool:
+    """Prove the corrected helper produces a version for a file this box used to fail
+    on (created, then modified) before we trust the rebinding."""
+    from tools import file_tools_read_tracking as rt
+    tmp = None
+    try:
+        fd, tmp = tempfile.mkstemp(prefix="wgfix-", suffix=".txt")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write("first\n")
+        time.sleep(0.02)
+        with open(tmp, "a", encoding="utf-8") as fh:
+            fh.write("second\n")          # birthtime now differs from change time
+        return rt._file_version(tmp) is not None
+    except Exception:
+        return False
+    finally:
+        if tmp:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+
+
+# ── install / remove ─────────────────────────────────────────────────────
+def install_guard_fix() -> bool:
+    """Rebind the guard's snapshot helper in the defining module AND in file_tools
+    (which imported it by name). Idempotent; restores everything on any doubt."""
+    global _installed, _last_error
+    if _installed:
+        return True
+    try:
+        import tools.file_tools as ft
+        import tools.file_tools_read_tracking as rt
+    except Exception as exc:                      # core not importable (yet)
+        _last_error = f"import failed: {exc}"
+        return False
+    targets = [(rt, _HELPER)]
+    if hasattr(ft, _HELPER):
+        targets.append((ft, _HELPER))
+    saved = []
+    try:
+        for module, name in targets:
+            current = getattr(module, name, None)
+            if not callable(current):
+                raise LookupError(f"{module.__name__}.{name} missing")
+            if getattr(current, "__name__", "") == _OURS:
+                continue
+            saved.append((module, name, current))
+            setattr(module, name, _consistent_file_version)
+        if not _self_check():
+            raise RuntimeError("self-check failed")
+    except Exception as exc:
+        for module, name, original in saved:
+            try:
+                setattr(module, name, original)
+            except Exception:
+                pass
+        _installed = ()
+        _last_error = str(exc)
+        return False
+    _installed = tuple(saved)
+    _last_error = ""
+    return True
+
+
+def remove_guard_fix() -> None:
+    """Put the shipped helper back (no-op when not installed)."""
+    global _installed
+    for module, name, original in _installed:
+        try:
+            setattr(module, name, original)
+        except Exception:
+            pass
+    _installed = ()
+
+
+def shim_state() -> dict:
+    return {"applied": bool(_installed), "error": _last_error}
+
+
+# ── hooks ────────────────────────────────────────────────────────────────
 def on_pre_llm_call(session_id: str = "", model: str = "", **_kwargs) -> None:
-    """Remember which model this session runs — the tool hooks cannot see it."""
+    """Remember which model this session runs -- the tool hooks cannot see it."""
     if session_id:
         _session_models[session_id] = model or ""
         _session_models.move_to_end(session_id)
@@ -93,23 +218,41 @@ def on_pre_llm_call(session_id: str = "", model: str = "", **_kwargs) -> None:
 
 
 def on_pre_tool_call(tool_name: str = "", session_id: str = "", **_kwargs) -> None:
-    """Scope the bypass to local-model write calls. Bounded hook: never vetoes."""
-    if not _enabled():
-        return None
-    local = (tool_name in GUARDED_TOOLS
-             and _session_models.get(session_id, "") in _staged_model_ids())
-    os.environ[GUARD_ENV] = "1" if local else "0"
+    """Apply the corrected helper for a local session's write call, remove it
+    otherwise. Bounded hook: never vetoes, never raises."""
+    try:
+        if not _enabled():
+            remove_guard_fix()          # the chip may have been switched off mid-run
+            return None
+        local = (tool_name in GUARDED_TOOLS
+                 and _session_models.get(session_id, "") in _staged_model_ids())
+        if local:
+            install_guard_fix()
+        else:
+            remove_guard_fix()
+    except Exception:
+        remove_guard_fix()
     return None
 
 
 def on_post_tool_call(**_kwargs) -> None:
-    """Drop the bypass again — a leak would outlive this one call."""
-    if _enabled():
-        os.environ[GUARD_ENV] = "0"
+    """Restore the shipped helper after the call -- a leak past this call would
+    silently extend the fix to other sessions."""
+    try:
+        if _enabled():
+            remove_guard_fix()
+    except Exception:
+        pass
     return None
 
 
 def register(ctx):
+    try:
+        import tools.file_tools_read_tracking as rt
+        if not callable(getattr(rt, _HELPER, None)):
+            _last_error = f"{_HELPER} not found in tools.file_tools_read_tracking"
+    except Exception as exc:
+        _last_error = f"import failed: {exc}"
     ctx.register_hook("pre_llm_call", on_pre_llm_call)
     ctx.register_hook("pre_tool_call", on_pre_tool_call)
     ctx.register_hook("post_tool_call", on_post_tool_call)

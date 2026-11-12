@@ -89,11 +89,11 @@ function Chip({ api }) {
 function WgChip({ api }) {
   // Same query key as the router chip, so one poll feeds both.
   const { data, refetch } = useStatus(api, 30_000)
-  const bypass = data?.write_guard_local_bypass ?? false
+  const fixed = data?.local_guard_fix ?? false
   return jsx('div', {
     onClick: (e) => {
       e.preventDefault()
-      api('/file-guard', { method: 'POST', body: { enabled: !bypass } })
+      api('/file-guard', { method: 'POST', body: { enabled: !fixed } })
         .catch(() => {})
         .finally(() => {
           queryClient.invalidateQueries({ queryKey: STATUS_KEY })
@@ -103,14 +103,14 @@ function WgChip({ api }) {
     style: {
       display: 'flex', alignItems: 'center', cursor: 'pointer',
       padding: '0 6px', fontSize: 10, whiteSpace: 'nowrap', userSelect: 'none',
-      color: bypass
+      color: fixed
         ? 'var(--ui-warn, var(--ui-text-secondary))'
         : 'var(--ui-text-quaternary)',
     },
-    title: bypass
-      ? 'Write guard: BYPASSED for staged local-router models — write_file/patch from those sessions stop refusing overwrites it cannot baseline (the Windows fstat/st_ctime bug). Codex and every other provider keep the guard. Click to restore it everywhere.'
-      : 'Write guard: ON (default) for every provider. Click to let staged local-router sessions bypass it if write_file keeps refusing legitimate overwrites with "has not seen its full current content" — Codex is not affected either way.',
-    children: bypass ? 'WG local' : 'WG on',
+    title: fixed
+      ? 'Write guard: FIXED for staged local-router models. Hermes\' guard cannot record a whole-file baseline on this filesystem (its os.fstat/os.stat st_ctime_ns mismatch), so write_file refuses legitimate overwrites; for local-model write calls the plugin swaps in a helper that takes one metadata view and still checks byte identity, so a genuinely stale overwrite is still refused. Codex and every other provider keep the shipped helper. Click to revert.'
+      : 'Write guard: STOCK (default) — the shipped helper, for every provider. Click to make local-router sessions use the corrected baseline check if write_file keeps refusing legitimate overwrites with "has not seen its full current content". Codex is not affected either way.',
+    children: fixed ? 'WG fixed' : 'WG stock',
   })
 }
 
