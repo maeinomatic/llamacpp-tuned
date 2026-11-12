@@ -45,9 +45,16 @@ The plugin is backend-agnostic: any llama.cpp build with router mode and
 `ngram-mod` speculative decoding works (b11671+ has ngram-mod; router preset
 flags need roughly b12000+; b12255 is what we test).
 
-1. Copy this folder to `%LOCALAPPDATA%\hermes\plugins\llamacpp-tuned\`
-   (Linux: `~/.hermes/plugins/llamacpp-tuned/`) and enable it
-   (`hermes plugins enable llamacpp-tuned` + Desktop → Plugins toggle).
+1. Clone it into the Hermes plugins folder (or copy the folder there):
+
+   ```bash
+   # Windows
+   git clone https://github.com/maeinomatic/llamacpp-tuned "%LOCALAPPDATA%\hermes\plugins\llamacpp-tuned"
+   # Linux
+   git clone https://github.com/maeinomatic/llamacpp-tuned ~/.hermes/plugins/llamacpp-tuned
+   ```
+
+   Then enable it (`hermes plugins enable llamacpp-tuned` + Desktop → Plugins toggle).
 2. **Use your existing llama.cpp build** — write `settings.json` next to
    `plugin_api.py`:
 
