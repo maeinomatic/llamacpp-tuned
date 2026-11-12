@@ -11,7 +11,7 @@ overwrites with "has not seen its full current content".
 
 The chip's WG segment (settings.json: local_guard_fix, OFF by default) makes the
 guard WORK again -- for local sessions only -- by rebinding that one helper, for the
-duration of a write_file/patch call from a session on a staged local model, to a
+duration of a write_file/read_file/patch call from a session on a staged local model, to a
 version that takes ONE metadata view (os.stat, the same one _file_metadata uses) and
 leaves byte identity to the sha256 it already computes. A genuinely stale overwrite
 (digest mismatch) or a file that changed mid-read is still refused. Codex, Copilot,
@@ -34,7 +34,11 @@ from pathlib import Path
 SETTING = "local_guard_fix"
 LEGACY_SETTING = "local_write_guard_bypass"   # pre-rename key: same opt-in, kept alive
 SETTINGS_FILE = Path(__file__).parent / "dashboard" / "settings.json"
-GUARDED_TOOLS = ("write_file", "patch")
+# read_file belongs here: its result decides the snapshot's completeness flag AND drops
+# a baseline the session had established (`if not complete: baselines.pop(...)`), so an
+# unshimmed read both fails to establish a baseline and destroys the one a shimmed write
+# just recorded. Measured in the field: write -> read -> write was refused on the read.
+GUARDED_TOOLS = ("write_file", "patch", "read_file")
 _SESSION_CAP = 512
 _MODEL_CACHE_TTL_S = 60.0
 _HELPER = "_file_version"
