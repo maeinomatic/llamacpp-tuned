@@ -1,0 +1,10 @@
+{
+  "source_artifacts_verified": 25,
+  "chart_count": 3,
+  "source_and_destination_hashes_valid": true,
+  "wrapper_links_valid": true,
+  "historical_links_not_rewritten": true,
+  "archive_json_valid": true,
+  "source_code_changes": "",
+  "commit_push_performed": false
+}

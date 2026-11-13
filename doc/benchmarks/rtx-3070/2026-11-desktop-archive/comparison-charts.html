@@ -1,0 +1,91 @@
+<aside style="padding:10px;border:1px solid #999;color:#eee;background:#20232a">Historical RTX 3070 desktop measurements: Intel i7-13700K, 64 GB DDR5-4800, RTX 3070 8 GB, Windows 10, CUDA. Archive spans November 10–13, 2026; consult each report for its engine and workload. Not Legion Go 2 results (Ryzen Z2 Extreme, 32 GB shared RAM, ROCm/HIP).</aside><div style="padding:16px 20px; color:var(--foreground); font-family:var(--font-family, system-ui, sans-serif)">
+  <div style="font-size:15px; font-weight:600; margin-bottom:2px">RTX 3070 · Qwen3.5-35B-A3B — three configs, four metrics</div>
+  <div style="font-size:11px; opacity:.6; margin-bottom:14px">Measured 2026-11-10 / 2026-11-13 · pure decode · Huihui-Qwen3.5-35B i1-Q4_K_M</div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; font-size:11px">
+    <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--muted-foreground)"></span>Stock Hermes (b11671, 64K)</span>
+    <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--accent); opacity:.55"></span>Tuned plugin (b12255)</span>
+    <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--accent)"></span>Tuned + MoE cache</span>
+  </div>
+
+  <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start">
+    <!-- Decode -->
+    <div style="flex:1 1 300px; min-width:280px">
+      <div style="font-size:12px; font-weight:600; margin-bottom:8px">Decode speed (tok/s) — higher is better</div>
+      <div id="c1"></div>
+    </div>
+
+    <!-- Prefill -->
+    <div style="flex:1 1 300px; min-width:280px">
+      <div style="font-size:12px; font-weight:600; margin-bottom:8px">Prompt processing (tok/s) — higher is better</div>
+      <div id="c2"></div>
+      <div style="font-size:10px; opacity:.6; margin-top:4px">5.5K-token prompt, steady state · stock's ubatch 2048 wins here</div>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; margin-top:14px">
+    <!-- Context -->
+    <div style="flex:1 1 300px; min-width:280px">
+      <div style="font-size:12px; font-weight:600; margin-bottom:8px">Max context window (thousands of tokens)</div>
+      <div id="c3"></div>
+    </div>
+
+    <!-- Verdict matrix -->
+    <div style="flex:1 1 300px; min-width:280px">
+      <div style="font-size:12px; font-weight:600; margin-bottom:8px">Expected tokens/s by workload (with drafting where it applies)</div>
+      <div id="c4"></div>
+      <div style="font-size:10px; opacity:.6; margin-top:4px">Doc-copy/RAG = drafting-active; chat = novel text; 256K row needs the bigger window</div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var css = getComputedStyle(document.documentElement);
+  var fg = css.getPropertyValue('--foreground').trim() || '#ddd';
+  var muted = css.getPropertyValue('--muted-foreground').trim() || '#888';
+  var accent = css.getPropertyValue('--accent').trim() || '#7aa2f7';
+  var border = css.getPropertyValue('--border').trim() || '#333';
+
+  function bar(container, rows, max, unit) {
+    var host = document.getElementById(container);
+    var html = '';
+    rows.forEach(function (r) {
+      var w = Math.max(2, r.v / max * 100);
+      html += '<div style="display:flex; align-items:center; gap:8px; margin-bottom:5px">' +
+        '<div style="width:118px; font-size:10.5px; opacity:.75; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">' + r.label + '</div>' +
+        '<div style="flex:1; background:color-mix(in srgb, ' + fg + ' 6%, transparent); border-radius:3px; height:16px; position:relative">' +
+        '<div style="width:' + w + '%; height:100%; border-radius:3px; background:' + (r.color || accent) + '"></div>' +
+        '<div style="position:absolute; left:calc(' + w + '% + 6px); top:0; font-size:10.5px; line-height:16px; opacity:.85">' + r.v + (unit || '') + '</div>' +
+        '</div></div>';
+    });
+    host.innerHTML = html;
+  }
+
+  bar('c1', [
+    { label: 'Stock · decode', v: 36.2, color: muted },
+    { label: 'Tuned · decode', v: 34.7, color: accent, },
+    { label: 'Tuned+cache · 64K', v: 42.3, color: accent },
+    { label: 'Tuned+cache · 256K', v: 44.0, color: accent }
+  ], 50, ' t/s');
+
+  bar('c2', [
+    { label: 'Stock', v: 1022, color: muted },
+    { label: 'Tuned', v: 717, color: accent },
+    { label: 'Tuned+cache', v: 673, color: accent }
+  ], 1100, '');
+
+  bar('c3', [
+    { label: 'Stock', v: 64, color: muted },
+    { label: 'Tuned', v: 256, color: accent },
+    { label: 'Tuned+cache', v: 256, color: accent }
+  ], 300, 'K');
+
+  bar('c4', [
+    { label: 'Doc-copy 256K · stock', v: 22, color: muted },
+    { label: 'Doc-copy 256K · tuned', v: 82, color: accent },
+    { label: 'Doc-copy 256K · t+cache*', v: 100, color: accent },
+    { label: 'Novel chat · stock', v: 36.2, color: muted },
+    { label: 'Novel chat · t+cache', v: 44, color: accent }
+  ], 110, ' t/s');
+})();
+</script>

@@ -1,0 +1,15 @@
+# Machine: DESKTOP — i7-13700K (16C/24T), 64GB DDR5-4800, RTX 3070 8GB (CUDA), Windows 10, llama.cpp b12255
+# Benchmark date: 2026-11-11/12
+model,engine,config,pp_tok_s,tg_tok_s,notes
+Huihui-Qwen3.5-35B-A3B-abliterated.i1-Q4_K_M,A-stock,no-spec,340,39,control; rep2/3; RAM 17.9GB VRAM 5.1GB
+Huihui-Qwen3.5-35B-A3B-abliterated.i1-Q4_K_M,B-tuned-nmod,ngram-mod,675,39,control; spec-hit tg 73-87 on repetitive prompt; RAM 19.6GB VRAM 7.7GB
+Qwen3.6-35B-A3B-abliterated-MTP,B-tuned,ngram-mod,~540,unstable,59,15.2GB,7704,MTP-draft broken on some prompts (1-token stops); model itself also stalls on some >1k prompts
+Qwen3.6-35B-A3B-abliterated-MTP,B-tuned,draft-mtp,~530,unstable,60-100,20.9GB,7701,same stall bug; MTP unusable in b12255
+Qwen3.6-35B-A3B-abliterated-MTP,A-stock,none,660-672,unstable (1-token),38.6,,-,stall confirmed model-level not spec-level
+Qwen3.8-45B-A3B-whittle,B-tuned,ngram-mod,594-659,58-88,93,20GB,7688,best spec accept rates; healthy on all prompts
+Qwen3.8-45B-A3B-whittle,A-stock,none,601-692,35,35,,-,healthy
+Kimi-Linear-48B-A3B-abliterated,A-stock,none,485-722,stall (1-token),31.5,,-,128k ctx only; q4_0/q8_0 KV crashes context creation (f16 KV required); intermittent 1-token stalls on some long prompts
+Kimi-Linear-48B-A3B-abliterated,A-stock,ngram-mod,-,stall,92,21.9GB,5577,128k ctx; fast when it works
+Kimi-Linear-48B-A3B-abliterated,B-tuned,ngram-mod,-,-,-,,BLOCKED: router common_fit_params rejects kimi-linear arch at any ctx; load via explicit flags works
+Qwen3-Next-80B-A3B-abliterated,B-tuned,ngram-mod,457-503,58-68,74-75,40GB,5393,262k ctx OK; 40GB RAM fits comfortably
+Qwen3-Next-80B-A3B-abliterated,A-stock,none,478-505,31.4,31.6,39.8GB,-,healthy

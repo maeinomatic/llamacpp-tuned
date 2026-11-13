@@ -1,0 +1,188 @@
+{
+  "import_date": "2026-11-13T23:28:18.321488",
+  "records": [
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\all-models-charts.html",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/all-models-charts.html",
+      "source_sha256": "29bf310cc739978425ff195edbbb673f7c343e1c2e6c7ca37760113ba1ce12f1",
+      "destination_sha256": "cc240f8ceb5b327873ec20a30dfb038312313e5588eae984c7ab70942943c90d",
+      "transformation": "visible hardware banner added"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\BENCHMARK-REPORT.md",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/BENCHMARK-REPORT.md",
+      "source_sha256": "61e47dc4db721bdba92441caae04d231a0f4a920c1517ce0a9584230ed8e2459",
+      "destination_sha256": "f45a93984125bd62ec32987c6d044689349afd90de4168782b028a688782abcb",
+      "transformation": "verbatim copy; desktop provenance banner added"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\cache-sweep-charts.html",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/cache-sweep-charts.html",
+      "source_sha256": "d15c15a5160d107fd63c415d8a2f5a0b0e163bd5e0ac0f5eec05ad1aac824063",
+      "destination_sha256": "4f0d1dbf9f660ad94561e49fa5275e981e40c97f7c0fa91678a796ef5c491a27",
+      "transformation": "visible hardware banner added"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\comparison-charts.html",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/comparison-charts.html",
+      "source_sha256": "1b7274f11b6f422a3d48328f5326d866d09abe9f508b784d09fa8532fb826bdb",
+      "destination_sha256": "9256c81631a0efffd44f1265dcaca0ee41803e8f785a9fdef08878713cba506f",
+      "transformation": "visible hardware banner added"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\qwen-3070-moe-cache-notes.md",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/qwen-3070-moe-cache-notes.md",
+      "source_sha256": "f53c43855c2c949ea0610f566e547fecb6135941acff33d1010e3c9917e5b57b",
+      "destination_sha256": "be618243e6bd5c8d1723162704ae7bac58073eff4031c15cae4128dce6b55cf6",
+      "transformation": "verbatim copy; desktop provenance banner added"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\qwen-3070-moe-cache-vs-benchmark.md",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/qwen-3070-moe-cache-vs-benchmark.md",
+      "source_sha256": "634419fec7a975490736b7ddba1b30ebb567be74a22c866b55ed83c380ea4fb0",
+      "destination_sha256": "0a375058eada17f8632ff4d6740eed84bbf055022eeffa379007a9869ceacfc7",
+      "transformation": "verbatim copy; desktop provenance banner added"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\STATUS.md",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/STATUS.md",
+      "source_sha256": "8409b5011a9af1cf56c70e477108a1bf6d697d7177f30efa22ac04507ba00205",
+      "destination_sha256": "3078a1829159f238b5c059b4b4d419445ebc6db426f8f0cbe5e006c9ff7aff08",
+      "transformation": "verbatim copy; desktop provenance banner added"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\transcript_OWhgJjePORk.txt",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/transcript_OWhgJjePORk.txt",
+      "source_sha256": "0291140887007a4a55bcf352781b559e97fcee0129df34ca3aa71456d1ebaf7a",
+      "destination_sha256": "0291140887007a4a55bcf352781b559e97fcee0129df34ca3aa71456d1ebaf7a",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\extra_points.py",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/extra_points.py",
+      "source_sha256": "2eff07327c612154c404139f708a912b3c4e0417fe86421bc0e37606680ca6d1",
+      "destination_sha256": "2eff07327c612154c404139f708a912b3c4e0417fe86421bc0e37606680ca6d1",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\fit_local.py",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/fit_local.py",
+      "source_sha256": "953358197f12826394584599066ac7d46196eb85b3f8404e35fea773e749d003",
+      "destination_sha256": "953358197f12826394584599066ac7d46196eb85b3f8404e35fea773e749d003",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\measure_plain.py",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/measure_plain.py",
+      "source_sha256": "8aef49e4f61f1bb6ededcd68ad90c54876669dd7abef9693450664f43e4613b5",
+      "destination_sha256": "8aef49e4f61f1bb6ededcd68ad90c54876669dd7abef9693450664f43e4613b5",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\measure_points.py",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/measure_points.py",
+      "source_sha256": "e842e7618b4f4e0bac581cc1b841b433c11ef005560765c5e6327d989e99e46e",
+      "destination_sha256": "e842e7618b4f4e0bac581cc1b841b433c11ef005560765c5e6327d989e99e46e",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\measure_pp.py",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/measure_pp.py",
+      "source_sha256": "a7572f66fab9417a616bc5cca598cfdd7c9d59b0db79224a636aee3d3e4bf28c",
+      "destination_sha256": "a7572f66fab9417a616bc5cca598cfdd7c9d59b0db79224a636aee3d3e4bf28c",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\moe-cache-tune.py",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/moe-cache-tune.py",
+      "source_sha256": "bf7e830bcfa645388ccd852568c4cc008d941e33d0820c2a5e308c408cfa9ef8",
+      "destination_sha256": "bf7e830bcfa645388ccd852568c4cc008d941e33d0820c2a5e308c408cfa9ef8",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\run-1856-0.5.json",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/run-1856-0.5.json",
+      "source_sha256": "b49e6a30e05396d23432c3a1d388884ea2c7afa0d206624c2313a70c28c1abba",
+      "destination_sha256": "b49e6a30e05396d23432c3a1d388884ea2c7afa0d206624c2313a70c28c1abba",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\run-1856-0.95.json",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/run-1856-0.95.json",
+      "source_sha256": "1d5beb636b17958c2959adcb79550d01c253a29b66f6d83c30f81a6334dc63a5",
+      "destination_sha256": "1d5beb636b17958c2959adcb79550d01c253a29b66f6d83c30f81a6334dc63a5",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\run-1856-0.json",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/run-1856-0.json",
+      "source_sha256": "71e455c448815723fcca8a479d2f6e06cd463cb24be0ee0afaec620b64324f3d",
+      "destination_sha256": "71e455c448815723fcca8a479d2f6e06cd463cb24be0ee0afaec620b64324f3d",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\run-2560-0.5.json",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/run-2560-0.5.json",
+      "source_sha256": "4974af234536cf718cf4a633759735c07c7817c9fad48307815821c439ce23bd",
+      "destination_sha256": "4974af234536cf718cf4a633759735c07c7817c9fad48307815821c439ce23bd",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\run-2560-0.95.json",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/run-2560-0.95.json",
+      "source_sha256": "a86beedb6bf93342d19edd179bf3cb68bd8bf72d3c16df4755c9136fdc1ec6fb",
+      "destination_sha256": "a86beedb6bf93342d19edd179bf3cb68bd8bf72d3c16df4755c9136fdc1ec6fb",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\run-2560-0.json",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/run-2560-0.json",
+      "source_sha256": "5fb778495781c7a812e3cc1b1cd012e3d1f4b9ef366aec5c0267bc0bf3f5f39f",
+      "destination_sha256": "5fb778495781c7a812e3cc1b1cd012e3d1f4b9ef366aec5c0267bc0bf3f5f39f",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\run-3200-0.95.json",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/run-3200-0.95.json",
+      "source_sha256": "5d9580a22bb1a2c5c7a25f3e058852bce7c2fec05877dd4d79a7f68d16bb4f3c",
+      "destination_sha256": "5d9580a22bb1a2c5c7a25f3e058852bce7c2fec05877dd4d79a7f68d16bb4f3c",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "C:\\Users\\Martin\\Documents\\llamacpp-bench-2026-11\\scripts-and-raw-data\\run-3584-0.95.json",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-desktop-archive/scripts-and-raw-data/run-3584-0.95.json",
+      "source_sha256": "18b01f43397123ea95ecff492aac96fb2cd079cac1c84eae57e54149b2780bf7",
+      "destination_sha256": "18b01f43397123ea95ecff492aac96fb2cd079cac1c84eae57e54149b2780bf7",
+      "transformation": "verbatim copy"
+    },
+    {
+      "source": "F:\\AI\\llama.cpp\\plan-model-eval-2026-11-11.md",
+      "destination": "doc/plans/2026-11-12-rtx-3070-model-evaluation.md",
+      "source_sha256": "2f65e71af1eefed235d55f5f99bca0a15a2f3d1339c194c5db52484c1a9b53cd",
+      "destination_sha256": "f2679dbdd0c8f11bb7b97ee5bb3349ebddb5b11c8dc1a2da89527d6a6e8f5ed7",
+      "transformation": "imported from backup/local-docs-eval with earlier desktop provenance additions; historical content may differ from F working copy; desktop provenance banner added"
+    },
+    {
+      "source": "F:\\AI\\llama.cpp\\findings-model-eval-2026-11-11.md",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-12-model-eval/findings.md",
+      "source_sha256": "30fb221995bc8304f050047f173a53d9f3815a89b562070c15e76434493d1ee8",
+      "destination_sha256": "ad8a8ba1b794009b7fdef2b4c51add166ec13573e2f747988c3790dd4d730619",
+      "transformation": "imported from backup/local-docs-eval with earlier desktop provenance additions; historical content may differ from F working copy; desktop provenance banner added"
+    },
+    {
+      "source": "F:\\AI\\llama.cpp\\bench-results-2026-11-11.csv",
+      "destination": "doc/benchmarks/rtx-3070/2026-11-12-model-eval/bench-results.csv",
+      "source_sha256": "ddaa27e56fd5ebdd660bf9d0c149511032189839c31af861a699fc2ac4531515",
+      "destination_sha256": "afe836bf6247a2de9d8bf95836aabe501b4930191cb354d2c7eb88339349b255",
+      "transformation": "imported from backup/local-docs-eval with earlier desktop provenance additions; historical content may differ from F working copy"
+    }
+  ],
+  "source_machine": {
+    "id": "rtx-3070-desktop",
+    "cpu": "Intel i7-13700K",
+    "ram": "64 GB DDR5-4800",
+    "gpu": "NVIDIA RTX 3070 8 GB",
+    "os": "Windows 10",
+    "backend": "CUDA"
+  }
+}

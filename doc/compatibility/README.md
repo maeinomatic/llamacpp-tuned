@@ -4,6 +4,7 @@
 
 - [This AMD 890M Windows machine: exact setup and protected behavior](amd-890m-windows.md).
 - [Cross-machine change and deployment checklist](cross-machine-checklist.md).
+- [Legion Go 2 backend supplement](legion-go-2-backend-supplement.md) — Vulkan default, ROCm/HIP-on-Windows status, UMA tuning; complements the 890M doc.
 
 The detailed repair assessment is in the [proxy repair changelog](../changelogs/2026-11-13-proxy-reliability-and-rocm-activation.md#6-rtx-3070-impact-assessment).
 

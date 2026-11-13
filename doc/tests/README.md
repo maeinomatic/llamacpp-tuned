@@ -29,3 +29,5 @@ An earlier real-model sweep failed on asynchronous unloading; its failure and co
 - Archived harnesses contain fixed local paths and runtime creation/load/unload behavior. They are evidence, not a portable command to execute from this folder. Review them before any approved live run.
 - No new GPU/model run was needed for this documentation reorganization.
 - Preserve failures, stderr and skipped checks. Store future test reports and sanitized evidence here, with explicit dates and environment labels.
+
+- [Desktop review of Lenovo PR #1](2026-11-13-rtx-plugin-review.md): 29 tests, JS checks, unchanged CUDA/AMD preset fixtures; subsequent isolated live CUDA proxy smoke passed for 35B/45B (80B and GUI activation not tested).

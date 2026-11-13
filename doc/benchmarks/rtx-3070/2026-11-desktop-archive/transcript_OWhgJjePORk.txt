@@ -1,0 +1,130 @@
+llama.cpp vs Ollama: the new MoE cache runs big models 2x faster..
+KernelBrief - 17:04 - https://www.youtube.com/watch?v=OWhgJjePORk
+
+[00:00] An eight gigabyte RTX 3070 ran a 35B model, from a 4-bit file, at 35 tokens a second.
+[00:07] Then llama.cpp merged its new MoE cache, and the same card ran big models almost 2 times faster: 62.
+[00:15] Ollama runs llama.cpp underneath, so here's the obvious question for llama.cpp versus Ollama: does your Ollama get the 62, or do you have to switch?
+[00:26] So we'll take the five machines from the people who tested it, and decide for each one whether it should leave Ollama for this setting. Here's the first answer, and it's in Ollama's own code.
+[00:35] Ollama starts the same llama-server program you'd run yourself, and the copy it ships already contains the new cache.
+[00:41] But the cache only turns on with a flag, its default is zero, and Ollama never passes it. So Ollama has the engine. It just doesn't have the switch.
+[00:50] So why doesn't Ollama just flip it?
+[00:53] Because the right number is different on every machine, and on some machines the wrong number makes it slower, which we'll see by machine three. The setting has two parts.
+[01:02] The first, from October, keeps the experts your model uses most on the graphics card, and its flag is called moe-cache-mib.
+[01:09] The second merged on November 7th, and it lets your processor do some of the work from system RAM instead. Its flag is moe-cache-cpu-share, and both default to off.
+[01:20] It only matters for one kind of model: a mixture of experts model that's too big for your card, so part of it sits in your RAM.
+[01:27] If your model fits on the card, nothing here changes, and I'll say that again at the end. The five machines come from the pull request itself, where owners ran the author's tuning script and posted the results.
+[01:37] They're owners' reports, not a lab.
+[01:39] Each one ran its own model file, so every speed in this video is that owner's own copy, and we'll only compare each card with itself.
+[01:47] Here they are: an eight gigabyte 3070, an eleven gigabyte 2080 Ti, a sixteen gigabyte 5060 Ti, a 24 gigabyte 3090, and a brand new Radeon in the fastest slot you can buy.
+[02:00] So which of the five should leave Ollama?
+[02:03] Each one gets a verdict, switch or stay, and one of them gets a verdict nobody expected, from the person who wrote the setting.
+[02:10] To see why one setting can nearly double a card, you need one picture of the model. Take Qwen 3.6 35B, which a lot of you run, because it's the kind this is for.
+[02:20] Each of its 40 layers holds 256 small experts, and every word only wakes up eight of them. It's a committee where almost nobody turns up, which is the
+[02:29] efficient kind. So a word reads 320 experts in total, which is a sliver of the model. So how does a 35B model run on an eight gigabyte card at all?
+[02:40] The experts stay in system RAM, and everything else sits on the card. Ollama does that part already, by the way.
+[02:46] On an eight gigabyte card it quietly keeps about 13 gigabytes of a 26B Gemma in your RAM, and the processor does the expert math there.
+[02:54] That works, but your processor is slower at math than your card, so speeds get stuck in the thirties. The cache is the fix, because it keeps the most popular experts on the card itself. Okay, take a guess before I tell you.
+[03:07] If the card has room for only a small slice of the experts, how many of the lookups do you think it can answer by itself?
+[03:13] On the 3070, the cache held a sixth of the experts, and it answered three quarters of the lookups. I'd have guessed about a third, because I assumed the experts were used evenly, and they really aren't.
+[03:24] A few experts get asked about everything, which is how most committees work too. And on the 2080 Ti, a quarter of the experts answered 88 percent.
+[03:33] But that still leaves the misses.
+[03:35] In October's version, every miss meant copying that expert from RAM to the card first, across the slot your card plugs into, while the card waited.
+[03:44] Machine one is the 3070, eight gigabytes, with a 35B coding model built on that same Qwen, in a 4-bit file.
+[03:52] With the experts in RAM and no cache, it wrote about 35 tokens a second.
+[03:56] That's roughly what Ollama would give it, because it's the same engine doing the same split. Then he turned on October's cache, about three gigabytes of it, and it went to 41. That's better, but it's not the headline.
+[04:08] Then he turned on the new part, the CPU share, at 0.95, which means the processor handles 95 percent of the misses itself.
+[04:17] And the same card wrote 62.4.
+[04:20] That's 1.78 times the speed he started with, on the same card, the same file and the same RAM. The only thing that changed is which chip does each piece of the math. So why would the slow chip make it faster?
+[04:34] You'd think the graphics card should do all the math, because it's the fast one, and that's what I thought too. Okay, napkin math, and every number on it comes from his own tuning run.
+[04:44] One expert in his file is 1.71 megabytes, and each word needs 320 of them. With three quarters of them on the card, 77 are misses, so about 131 megabytes have to come from RAM for every word.
+[04:58] His slot moved 9.8 gigabytes a second, so that's 13 milliseconds of waiting per word. Add the 11 milliseconds everything else takes, and you get 41 tokens a second.
+[05:09] He measured 41. I like it when a napkin agrees with a benchmark.
+[05:12] Now the CPU share. His processor reads those same experts from RAM at 35.9 gigabytes a second, which is 3.7 times faster than his slot copies
+[05:22] them. So when the processor does 95 percent of the misses, the waiting drops from 13 milliseconds to under 5.
+[05:29] The formula says 62.8 tokens a second, and he measured 62.4. But why is the slot so slow?
+[05:36] His slot is rated at about 29 gigabytes a second, and it moved 9.8, about a third of that. The reason is in llama.cpp's own documentation.
+[05:46] By default, the model file is mapped from disk instead of locked in memory, and copying from that kind of memory runs well below the slot's full speed.
+[05:54] So the slot is a motorway with a toll booth for every lorry.
+[05:58] The processor is already standing next to the cargo, so it just does the work where it is. That gives you the rule for your own machine, and it's the only rule in this
+[06:06] video. The CPU share helps when your processor reads RAM faster than your slot copies to the card. Machines two and three belong to one owner, and they're where
+[06:15] the trap shows up. Both ran Qwen 3.6 35B from the same 6-bit file. The 2080 Ti, with eleven gigabytes, wrote 42 tokens a second with no cache at all. The 5060 Ti, with sixteen, wrote 44.
+[06:30] Then he turned on the cache by itself, small, with the CPU share at zero, which is exactly what October's cache offered.
+[06:37] The 2080 Ti dropped to 23 and a half. And the 5060 Ti dropped to 18.7, which is less than half of where it started.
+[06:46] That's the fastest way to make a graphics card slower that I've seen this year, and it was a speed setting.
+[06:51] So what went wrong? A small cache misses a lot, and the 5060 Ti's slot copied at only 6.5 gigabytes a second, because that card only uses eight lanes,
+[07:02] not sixteen. But its processor read RAM at 75 gigabytes a second, eleven times faster than the slot.
+[07:09] So once he turned the CPU share on, the 5060 Ti went to 61, and the 2080 Ti to 64 and a half.
+[07:17] Against no cache at all, that's one and a half times on the 2080 Ti, and almost 1.4 on the 5060 Ti. And the tuner says the 5060 Ti has more to give, about 74 at a bigger cache, though that one's a prediction he didn't run.
+[07:31] So if you tried October's cache, decided it made things worse, and turned it off, you were right. It did make things worse, on your card, without the second half.
+[07:41] Quick question for the comments, because it decides which half of this video is yours. Does your model fit on your card, or does it spill into RAM?
+[07:48] Tell me the card and the model. That's three of five, and all three tell the same story.
+[07:53] A small card, a mid-size mixture of experts model, and a processor that reads RAM much faster than the slot copies it. All three get a switch.
+[08:02] On the 3070, the 2080 Ti and the 5060 Ti, the new setting is worth between 38 and 78 percent, and Ollama doesn't give you any of it today.
+[08:12] But the last two are where it gets interesting. One is the 125B model on a 24 gigabyte card, and the other is the newest slot you can buy, where the setting loses.
+[08:22] Machine four is a 3090, with 24 gigabytes and 96 gigabytes of RAM, running Qwen 3.8 Flash Next, the 125B model, in a 4-bit file.
+[08:33] Flash Next has 512 experts in each of its 48 layers, and almost 57 gigabytes of them in that file.
+[08:40] Every word needs 480 of them, about 1.1 gigabytes, so on a 24 gigabyte card this is the setting's home turf.
+[08:48] With October's cache alone, at five and a half gigabytes, it wrote 19 and a half tokens a second. With a bigger cache and the CPU share on, it wrote
+[08:57] 32.4. That's two thirds faster, on a model most people assume a 24 gigabyte card can't run at a useful speed.
+[09:05] And where did the 2 times headline come from? From the October tests on a 5090, the same model, where filling the card with cache took it from 31 tokens a second to 68.
+[09:15] So was it the cache that did it? Not entirely, and it's a nice catch.
+[09:20] When he loaded the model with a different load mode, called direct IO, the plain cache was already at 32, with the CPU share off.
+[09:28] Direct I O puts the experts in locked memory, so the slot copies at full speed, and the toll booth disappears.
+[09:34] In that mode, the CPU share added only a little more, about 36. So on the 3090, most of the gain came from loading the file differently.
+[09:43] Either way, it's a setting Ollama doesn't let you change for this.
+[09:46] That 5090 gave almost 19 of its 32 gigabytes to the cache, so on a big card the cache is the main event, not a side dish.
+[09:55] And if you run a 35B model at 4 bits on a 24 gigabyte card, it already fits, the experts never leave the card, and there's nothing for the cache to do.
+[10:04] That one stays on Ollama. Machine five is a Radeon R9700, a new 32 gigabyte card, in a PCIe 5 slot, with all sixteen lanes.
+[10:14] That's the fastest road between a card and its RAM that you can buy for a desktop. So what happens on the fastest slot you can buy?
+[10:21] Its owner ran Flash Next with a big cache, and any CPU share at all made it about 15 percent slower. The rule from the napkin explains it.
+[10:30] On a slot that fast, copying an expert to the card beats having the processor do the math, so the share just gets in the way.
+[10:37] And another owner had the opposite problem. His RAM ran at 2,400, which is slow, so his processor was the bottleneck, and the share made things worse for him too.
+[10:47] And then there's the author's own desktop, which is my favourite part of the whole thread. At a big cache, the share took it from 65 tokens a second down to 54.
+[10:56] So the tuning script told him to leave his own new setting off.
+[10:59] That's the most honest piece of software I've met this month, because it recommended share zero to the person who wrote share. So machine five gets a different verdict.
+[11:08] Use the cache, because a big cache still helps, but run the tuner and expect it to say the share is zero.
+[11:14] That's five of five. Four machines should switch for the whole setting, one should switch for the cache alone, and none of them can do it in Ollama the way Ollama ships today. Or can they?
+[11:25] Because there's one door in Ollama that nobody seems to have tried.
+[11:29] Now, the fine print, and it's the part the other videos about this setting skip, because none of them mentions Ollama at all.
+[11:36] I went through the file in Ollama's code that starts llama-server.
+[11:39] It passes a short list: the model, the port, the context length, the batch size, the load mode and a few more.
+[11:46] There's a comment right above that list that says it's a minimal set, so llama-server can work the rest out by itself.
+[11:52] And the cache is one of the things it can't work out, because it's off unless you ask. But llama.cpp also reads every one of these settings from environment variables, with names that start with llama arg.
+[12:04] So the cache size has its own variable, and so does the share. And Ollama hands its whole environment to llama-server when it starts it.
+[12:12] So on paper, if you set those variables where Ollama runs, they reach the engine.
+[12:17] And on a desktop card, Ollama leaves the file mapped from disk, which is exactly the setup where the share helps most.
+[12:23] I read that in the code, and I haven't tested it on a PC, because this Mac can't use the cache at all. So treat it as an experiment, and check Ollama's log for a line that says MoE cache size.
+[12:35] And there's a catch inside that door. The latest stable Ollama ships a llama.cpp from before November 7th, so it has October's cache but not the CPU share.
+[12:45] Which means the environment trick, on stable Ollama today, gives you exactly the combination that made the 5060 Ti slower.
+[12:52] The pre-release from November 10th has both halves.
+[12:55] And Ollama itself? A request to let people control where the experts go has been open on Ollama's GitHub since August of last year, with 74 thumbs up.
+[13:05] I'm four bits, and I've waited for less. LM Studio has a switch that forces the experts onto the processor.
+[13:11] But I couldn't find a cache setting in its notes, so as far as I can tell it isn't one you can change there today either. And one more thing you might have heard.
+[13:19] An automatic setting for the CPU share was in review last week, and it was closed without being merged. So for now it's the tuning script, or numbers you pick yourself.
+[13:28] Even the merge itself was close, because llama.cpp's lead developer called the first version very fragile, and it went in after a rewrite.
+[13:36] So let's put the five machines together, because they all answer two questions, and you can answer both for your own setup in about a minute.
+[13:44] Question one: does your model spill?
+[13:46] If the whole file fits on your card with room for the conversation, the experts never cross the slot, and Ollama is already as fast as llama.cpp for you.
+[13:55] Question two, only if it spills: does your RAM beat your slot?
+[14:00] An older slot, eight lanes, or a file mapped from disk says yes, and that's where
+[14:05] the share pays. A PCIe 5 slot with sixteen lanes, or slow RAM, says no, and then it's the cache alone, as big as your card allows.
+[14:15] So how do you answer them without guessing? You don't have to, because the tuning script measures both.
+[14:20] You put it in front of your usual llama-server command, with the flag that keeps the experts on the processor.
+[14:26] It starts the server six times, with two cache sizes and three shares, and times each run. Then it replays the experts your model actually asked for through a copy of the cache, and predicts every other size.
+[14:38] It picks the lowest share within 5 percent of the fastest, which is why it leans toward off. It takes a few minutes, mostly loading the model. One warning from the thread.
+[14:47] If you load a vision file for images, the script doesn't count its memory yet, so give it a smaller maximum cache.
+[14:53] On a Radeon it works through rock M, and the one garbage-output report on Vulkan turned out to be an old build, fixed with a clean rebuild.
+[15:00] Nobody has tested an Intel card yet.
+[15:02] And if you try the Ollama route, the variables go where Ollama's server reads its settings: the system environment variables on Windows, a service override on Linux, and then restart Ollama.
+[15:13] So, your move. If you have a 16 gigabyte card and you run Qwen 3.6 35B or a 4-bit Gemma 4 26B, the file is bigger than your
+[15:23] card. So I'd switch to llama.cpp's server for that model and run the tuner, because that's 44 to 61 measured on a 5060 Ti.
+[15:32] If you'd rather stay in Ollama, try the pre-release with the variables, and check the log line. With 24 or 32 gigabytes, a 35B model at 4 bits fits, so stay on Ollama for it.
+[15:43] But if you run Flash Next, switch for that one, because that's 19 and a half to 32 on a 3090. With 12 gigabytes, or the 2080 Ti's eleven, switch for any 35B-class model, because that's 42 to 64 and a half.
+[15:57] With eight gigabytes, switch, because that's the biggest gain of all, and bring 32 gigabytes of RAM. On a new card in a PCIe 5 slot, switch for the cache, and let the tuner talk you out of the share.
+[16:08] On a Mac, none of this applies, because the card and the RAM are the same memory, and there's no slot to wait on. Remember the 3070 from the start?
+[16:16] It was 35 tokens a second in the setup Ollama gives you, and 62.4 with two flags
+[16:21] Ollama doesn't pass. So if your model fits on your card, Ollama is fine, and you can stop reading pull requests.
+[16:28] If it spills into RAM, the speed is in two settings, and today they live in llama.cpp. I'm Nibble, and this is KernelBrief: AI, one layer at a time.
+[16:38] If you want someone reading the fine print on your hardware every week, that's what this channel is, so subscribe, and I'll tell you the day Ollama adds the switch.
+[16:46] And if you're deciding which Gemma to put on a small card, the 26B is the mixture of experts one that spills, and it's the one this setting is for.
+[16:54] That video, Gemma 4 12B or 26B, is on your screen right now.

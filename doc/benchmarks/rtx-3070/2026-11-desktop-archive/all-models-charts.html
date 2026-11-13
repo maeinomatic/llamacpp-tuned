@@ -1,0 +1,75 @@
+<aside style="padding:10px;border:1px solid #999;color:#eee;background:#20232a">Historical RTX 3070 desktop measurements: Intel i7-13700K, 64 GB DDR5-4800, RTX 3070 8 GB, Windows 10, CUDA. Archive spans November 10–13, 2026; consult each report for its engine and workload. Not Legion Go 2 results (Ryzen Z2 Extreme, 32 GB shared RAM, ROCm/HIP).</aside><div style="padding:16px 20px; color:var(--foreground); font-family:var(--font-family, system-ui, sans-serif)">
+  <div style="font-size:15px; font-weight:600; margin-bottom:2px">MoE cache — every staged model, baseline vs tuned+cache</div>
+  <div style="font-size:11px; opacity:.6; margin-bottom:14px">Pure decode, each at its own preset · b12255 · share 0.95 · load-mode none · measured 2026-11-13</div>
+
+  <div style="font-size:11px; margin-bottom:10px">
+    <span style="display:inline-flex; align-items:center; gap:5px; margin-right:14px"><span style="width:10px;height:10px;border-radius:2px;background:var(--muted-foreground)"></span>baseline (tuned preset, no cache)</span>
+    <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--accent)"></span>+ MoE cache (per-model size)</span>
+  </div>
+
+  <div id="c1" style="margin-bottom:18px"></div>
+
+  <div style="display:flex; gap:24px; flex-wrap:wrap">
+    <div style="flex:1 1 300px; min-width:280px">
+      <div style="font-size:12px; font-weight:600; margin-bottom:8px">Gain by model (%)</div>
+      <div id="c2"></div>
+    </div>
+    <div style="flex:1 1 300px; min-width:280px">
+      <div style="font-size:12px; font-weight:600; margin-bottom:8px">Cache size vs context window (VRAM budget, 8 GB)</div>
+      <div id="c3"></div>
+      <div style="font-size:10px; opacity:.6; margin-top:4px">Cache sizes are each model's measured VRAM ceiling at its preset ctx — 3200+ MiB thrashes</div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var css = getComputedStyle(document.documentElement);
+  var fg = css.getPropertyValue('--foreground').trim() || '#ddd';
+  var accent = css.getPropertyValue('--accent').trim() || '#7aa2f7';
+  var muted = css.getPropertyValue('--muted-foreground').trim() || '#888';
+
+  function bars(container, rows, max, fmt) {
+    var host = document.getElementById(container);
+    var html = '';
+    rows.forEach(function (r) {
+      html += '<div style="margin-bottom:9px">' +
+        '<div style="font-size:10.5px; opacity:.7; margin-bottom:3px">' + r.label + '</div>';
+      r.bars.forEach(function (b) {
+        var w = Math.max(1.5, b.v / max * 100);
+        html += '<div style="display:flex; align-items:center; gap:8px; margin-bottom:3px">' +
+          '<div style="flex:1; background:color-mix(in srgb, ' + fg + ' 6%, transparent); border-radius:3px; height:14px; position:relative">' +
+          '<div style="width:' + w + '%; height:100%; border-radius:3px; background:' + b.color + '"></div>' +
+          '<div style="position:absolute; left:calc(' + w + '% + 6px); top:0; font-size:10px; line-height:14px; opacity:.85; white-space:nowrap">' +
+          (b.label ? b.label + ' ' : '') + (fmt ? fmt(b.v) : b.v) + '</div></div></div>';
+      });
+      html += '</div>';
+    });
+    host.innerHTML = html;
+  }
+
+  bars('c1', [
+    { label: 'Qwen3-Coder-30B-A3B-IT-Heretic-Q5_K_S (87,381 ctx, 2560 MiB cache)', bars: [
+      { v: 23.9, color: muted }, { v: 40.5, color: accent } ] },
+    { label: 'Huihui-Qwen3.5-35B-A3B-abliterated.i1-Q4_K_M (262,144 ctx, 2560 MiB)', bars: [
+      { v: 34.7, color: muted }, { v: 44.0, color: accent } ] },
+    { label: 'Huihui-Qwen3-Next-80B-A3B-abliterated.i1-IQ4_XS (262,144 ctx, 1536 MiB)', bars: [
+      { v: 30.7, color: muted }, { v: 35.2, color: accent } ] },
+    { label: 'Sakura-Whittle-Qwen-3.8-45B-A3B-Q4_K_M (262,144 ctx, 2048 MiB)', bars: [
+      { v: 34.2, color: muted }, { v: 38.4, color: accent } ] }
+  ], 50, function (v) { return v + ' t/s'; });
+
+  bars('c2', [
+    { label: 'Qwen3-Coder-30B-A3B-IT-Heretic', v: 69, color: accent },
+    { label: 'Huihui-Qwen3.5-35B-A3B-abliterated', v: 26, color: accent },
+    { label: 'Huihui-Qwen3-Next-80B-A3B-abliterated (hybrid attn)', v: 15, color: accent },
+    { label: 'Sakura-Whittle-Qwen-3.8-45B-A3B', v: 12, color: accent }
+  ], 80, function (v) { return '+' + v + '%'; });
+
+  bars('c3', [
+    { label: 'Huihui-Qwen3.5-35B-A3B-abliterated (262,144 ctx)', bars: [ { v: 2560, color: accent } ] },
+    { label: 'Sakura-Whittle-Qwen-3.8-45B-A3B (262,144 ctx)', bars: [ { v: 2048, color: accent } ] },
+    { label: 'Huihui-Qwen3-Next-80B-A3B-abliterated (262,144 ctx)', bars: [ { v: 1536, color: accent } ] },
+    { label: 'Qwen3-Coder-30B-A3B-IT-Heretic (87,381 ctx)', bars: [ { v: 2560, color: accent } ] }
+  ], 3400, function (v) { return v + ' MiB'; });
+})();
+</script>

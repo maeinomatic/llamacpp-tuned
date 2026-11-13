@@ -8,3 +8,5 @@ Newest entries first. Add an entry for every fix or other change before calling 
 - [2026-11-13 — Proxy reliability, ROCm activation and RTX 3070 compatibility](2026-11-13-proxy-reliability-and-rocm-activation.md)
 
 Naming: `YYYY-MM-DD-short-description.md`. Date is the change/report date, not an invented release date. Entries must identify whether changes remain local/uncommitted. Do not replace earlier entries to hide failed tests or later corrections.
+
+- [2026-11-13 — Desktop PR review and benchmark import](2026-11-13-import-rtx-3070-benchmark-records.md).

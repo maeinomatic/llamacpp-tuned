@@ -1,0 +1,81 @@
+{
+  "base_revision": "b642ec2",
+  "scope": "Real CUDA inference through isolated repaired plugin proxy; not gateway activation or benchmark",
+  "public_port": 18880,
+  "router_port": 18881,
+  "runs": [
+    {
+      "label": "cold-35B",
+      "model": "Huihui-Qwen3.5-35B-A3B-abliterated.i1-Q4_K_M",
+      "first_bytes_seconds": 4.032561800006079,
+      "heartbeats": 7,
+      "chunks": 5,
+      "done": true,
+      "content": "PROXY_OK",
+      "reasoning_chars": 0,
+      "wall_seconds": 30.115642499993555,
+      "resident_after": "loaded"
+    },
+    {
+      "label": "warm-35B",
+      "model": "Huihui-Qwen3.5-35B-A3B-abliterated.i1-Q4_K_M",
+      "first_bytes_seconds": 0.10955100000137463,
+      "heartbeats": 0,
+      "chunks": 5,
+      "done": true,
+      "content": "PROXY_OK",
+      "reasoning_chars": 0,
+      "wall_seconds": 0.1949187999998685,
+      "resident_after": "loaded"
+    },
+    {
+      "label": "switch-to-45B",
+      "model": "Sakura-Whittle-Qwen-3.8-45B-A3B-Q4_K_M",
+      "first_bytes_seconds": 4.0050802000041585,
+      "heartbeats": 9,
+      "chunks": 5,
+      "done": true,
+      "content": "PROXY_OK",
+      "reasoning_chars": 0,
+      "wall_seconds": 39.0598195999919,
+      "resident_after": "loaded"
+    }
+  ],
+  "errors": [],
+  "resolved_engine": "C:\\Users\\Martin\\AppData\\Local\\hermes\\runtimes\\llamacpp-tuned\\llama-server.exe",
+  "router_pid": 28900,
+  "model_flags": {
+    "Huihui-Qwen3.5-35B-A3B-abliterated.i1-Q4_K_M": {
+      "--spec-type": "ngram-mod",
+      "--moe-cache-cpu-share": "0.95",
+      "--ctx-size": "262144",
+      "--cache-type-k": "q4_0",
+      "--cache-type-v": "q4_0",
+      "--moe-cache-mib": "2560"
+    },
+    "Sakura-Whittle-Qwen-3.8-45B-A3B-Q4_K_M": {
+      "--spec-type": "ngram-mod",
+      "--moe-cache-cpu-share": "0.95",
+      "--ctx-size": "262144",
+      "--cache-type-k": "q4_0",
+      "--cache-type-v": "q4_0",
+      "--moe-cache-mib": "2048"
+    }
+  },
+  "model_switch_evicted_previous": true,
+  "success": true,
+  "settings_unchanged": true,
+  "test_ports_closed": {
+    "18880": true,
+    "18881": true
+  },
+  "gpu_after": "792 MiB",
+  "execution_machine": {
+    "id": "rtx-3070-desktop",
+    "cpu": "i7-13700K",
+    "ram": "64 GB DDR5-4800",
+    "gpu": "RTX 3070 8 GB",
+    "os": "Windows 10"
+  },
+  "evidence_type": "isolated live CUDA proxy smoke, not performance benchmark"
+}

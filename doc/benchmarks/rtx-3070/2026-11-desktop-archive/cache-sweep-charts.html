@@ -1,0 +1,81 @@
+<aside style="padding:10px;border:1px solid #999;color:#eee;background:#20232a">Historical RTX 3070 desktop measurements: Intel i7-13700K, 64 GB DDR5-4800, RTX 3070 8 GB, Windows 10, CUDA. Archive spans November 10–13, 2026; consult each report for its engine and workload. Not Legion Go 2 results (Ryzen Z2 Extreme, 32 GB shared RAM, ROCm/HIP).</aside><div style="padding:16px 20px; color:var(--foreground); font-family:var(--font-family, system-ui, sans-serif)">
+  <div style="font-size:15px; font-weight:600; margin-bottom:2px">MoE-cache sweep — 35B-A3B on the 3070, 256K ctx, pure decode</div>
+  <div style="font-size:11px; opacity:.6; margin-bottom:14px">2026-11-12 tuner runs · tok/s higher is better · baseline without cache ≈ 34.7</div>
+
+  <div style="font-size:11px; margin-bottom:10px">
+    <span style="display:inline-flex; align-items:center; gap:5px; margin-right:14px"><span style="width:10px;height:10px;border-radius:2px;background:var(--muted-foreground)"></span>share 0 (cache only)</span>
+    <span style="display:inline-flex; align-items:center; gap:5px; margin-right:14px"><span style="width:10px;height:10px;border-radius:2px;background:var(--accent); opacity:.55"></span>share 0.5</span>
+    <span style="display:inline-flex; align-items:center; gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--accent)"></span>share 0.95</span>
+  </div>
+
+  <div style="font-size:12px; font-weight:600; margin-bottom:8px">Grouped by cache size — pinned load (load-mode none, our recipe)</div>
+  <div id="c1" style="margin-bottom:16px"></div>
+
+  <div style="font-size:12px; font-weight:600; margin-bottom:8px">Same sweep on default mmap (the losing load mode)</div>
+  <div id="c2" style="margin-bottom:16px"></div>
+
+  <div style="display:flex; gap:24px; flex-wrap:wrap">
+    <div style="flex:1 1 300px; min-width:280px">
+      <div style="font-size:12px; font-weight:600; margin-bottom:8px">VRAM ceiling test — bigger caches collapse</div>
+      <div id="c3"></div>
+      <div style="font-size:10px; opacity:.6; margin-top:4px">llama.cpp projects 7209 MiB needed vs 7113 free at 256K ctx → driver thrash</div>
+    </div>
+    <div style="flex:1 1 300px; min-width:280px">
+      <div style="font-size:12px; font-weight:600; margin-bottom:8px">Machine profile behind the result (pinned load)</div>
+      <div id="c4"></div>
+      <div style="font-size:10px; opacity:.6; margin-top:4px">CPU reads experts from DDR5 3.7× faster than PCIe uploads them — that ratio is the whole win</div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var css = getComputedStyle(document.documentElement);
+  var fg = css.getPropertyValue('--foreground').trim() || '#ddd';
+  var accent = css.getPropertyValue('--accent').trim() || '#7aa2f7';
+  var muted = css.getPropertyValue('--muted-foreground').trim() || '#888';
+
+  function group(container, groups, max, unit) {
+    var host = document.getElementById(container);
+    var html = '';
+    groups.forEach(function (g) {
+      html += '<div style="margin-bottom:8px">' +
+        '<div style="font-size:10.5px; opacity:.7; margin-bottom:3px">' + g.label + '</div>';
+      g.bars.forEach(function (b) {
+        var w = Math.max(1.5, b.v / max * 100);
+        html += '<div style="display:flex; align-items:center; gap:8px; margin-bottom:3px">' +
+          '<div style="flex:1; background:color-mix(in srgb, ' + fg + ' 6%, transparent); border-radius:3px; height:14px; position:relative">' +
+          '<div style="width:' + w + '%; height:100%; border-radius:3px; background:' + b.color + (b.bad ? '; opacity:.45' : '') + '"></div>' +
+          '<div style="position:absolute; left:calc(' + w + '% + 6px); top:0; font-size:10px; line-height:14px; opacity:.85; white-space:nowrap">' + b.v + (unit || '') + (b.note ? ' — ' + b.note : '') + '</div>' +
+          '</div></div>';
+      });
+      html += '</div>';
+    });
+    host.innerHTML = html;
+  }
+
+  group('c1', [
+    { label: 'no cache (baseline)', bars: [{ v: 34.7, color: muted, note: 'preset minus drafting' }] },
+    { label: 'cache 1856 MiB', bars: [
+      { v: 34.7, color: muted }, { v: 34.4, color: accent }, { v: 42.1, color: accent } ] },
+    { label: 'cache 2560 MiB', bars: [
+      { v: 39.0, color: muted }, { v: 37.0, color: accent }, { v: 44.0, color: accent, note: 'WINNER' } ] }
+  ], 50, ' t/s');
+
+  group('c2', [
+    { label: 'cache 1856 MiB', bars: [
+      { v: 24.5, color: muted }, { v: 25.4, color: accent }, { v: 39.2, color: accent } ] },
+    { label: 'cache 2560 MiB', bars: [
+      { v: 27.5, color: muted }, { v: 27.7, color: accent }, { v: 40.7, color: accent } ] }
+  ], 50, ' t/s');
+
+  group('c3', [
+    { label: 'cache 3200 MiB @ 0.95', bars: [{ v: 0.9, color: muted, bad: true, note: 'VRAM thrash' }] },
+    { label: 'cache 3584 MiB @ 0.95', bars: [{ v: 6.2, color: muted, bad: true, note: 'VRAM thrash' }] }
+  ], 50, ' t/s');
+
+  group('c4', [
+    { label: 'PCIe uploads (slot rate, measured)', bars: [{ v: 14.4, color: muted, note: 'GiB/s' }] },
+    { label: 'CPU expert read (DDR5-4800)', bars: [{ v: 52.8, color: accent, note: 'GiB/s — 3.7× the slot' }] }
+  ], 60, '');
+})();
+</script>

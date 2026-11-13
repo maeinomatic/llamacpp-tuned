@@ -12,3 +12,7 @@ Live proxy activation and brief generated replies belong under [tests](../tests/
 Use the [benchmark template](../templates/benchmark.md). Put each run under a hardware/backend folder and a measurement-date/scenario folder. Record exact model identity, engine build, settings and raw results; use paired same-session A/B measurements for performance comparisons.
 
 Historical files are archived evidence, not instructions to run old launchers or change the current server. Prefer Qwen for new tests. Preserve original results and document corrections separately. Do not automatically start any archived script: some force-stop every llama-server process and write absolute machine paths.
+
+## Desktop archive import
+
+The [RTX 3070 index](rtx-3070/README.md) now links historical charts, cache-sweep JSONs, model-evaluation records with corrections, and import hashes.
