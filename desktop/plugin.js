@@ -129,8 +129,8 @@ function UnloadChip({ api }) {
   // with the status bar in every theme) and paint the options with theme vars
   // — otherwise items are invisible on dark themes.
   const optStyle = {
-    background: 'var(--ui-bg, var(--ui-card, var(--background, #1e1e1e)))',
-    color: 'var(--ui-foreground, var(--ui-text-primary, var(--foreground, #ddd)))',
+    background: 'var(--card, #1e1e1e)',
+    color: 'var(--foreground, #ddd)',
   }
   return jsx('select', {
     value: String(seconds),
@@ -149,8 +149,8 @@ function UnloadChip({ api }) {
       cursor: 'pointer', margin: '0 2px', border: 'none', padding: '0 2px',
       fontSize: 10, whiteSpace: 'nowrap', userSelect: 'none',
       background: 'transparent',
-      color: seconds <= 0 ? 'var(--ui-warn, var(--ui-text-secondary))'
-        : 'var(--ui-text-secondary, var(--foreground))',
+      color: seconds <= 0 ? 'var(--ui-warn, var(--muted-foreground))'
+        : 'var(--muted-foreground, var(--foreground))',
     },
     title: 'Idle unload for loaded models. After this many minutes without token activity the router frees VRAM; the next request reloads the model automatically. "never" keeps models resident until the gateway dies (VRAM stays occupied). Applies to the running router within ~1 minute.',
     children: [
