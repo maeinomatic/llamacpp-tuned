@@ -5,6 +5,7 @@ These rules apply to work on llamacpp-tuned. Read [doc/README.md](doc/README.md)
 ## Required changelog for every change
 
 - Every bug fix, feature, refactor, configuration/default change, dependency change, deployment adjustment or documentation reorganization MUST add a Markdown entry to `doc/changelogs/` before the task is called complete. Documentation-only maintenance also needs an entry.
+- **No entry is needed for pulling/resyncing commits that already carry their own `doc/changelogs/` entry** (e.g. `git pull` of upstream work), or for read-only inspection, verification or reporting. Record a change here only when this machine/authored work changes repo content.
 - Name entries `YYYY-MM-DD-short-description.md`, using the actual local date. Use a distinct descriptive suffix for separate changes on the same day. Do not invent a commit ID for uncommitted work.
 - Use [the changelog template](doc/templates/changelog.md). Explain the symptom/reason, changes, unchanged behavior, hardware/backend impact, tests actually run, failures/limits, migration/rollback and commit/push status.
 - Update the [changelog index](doc/changelogs/README.md) and relevant documentation links in the same task. Do not create loose `CHANGELOG_LOCAL.md`, `REPAIR_PLAN.md` or benchmark reports in the repository root.
