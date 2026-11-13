@@ -119,26 +119,29 @@ function WgChip({ api }) {
 
 function UnloadChip({ api }) {
   // Same query key as the router chip, so one poll feeds both.
+  //
+  // WHY NOT A NATIVE <select>: in the packaged Desktop the statusbar host does
+  // not preserve nested element children of a registered chip — the <option>
+  // list was stripped, leaving an empty select (bare chevron, no label, empty
+  // popup). Plain-string children render fine (LLM / WG chips), so this chip is
+  // a click-to-cycle button over the same six states; the label always shows
+  // the active value.
+  const STEPS = [
+    { seconds: 900, label: '15m' },
+    { seconds: 1800, label: '30m' },
+    { seconds: 3600, label: '1h' },
+    { seconds: 7200, label: '2h' },
+    { seconds: 10800, label: '3h' },
+    { seconds: 0, label: 'never' },
+  ]
   const { data, refetch } = useStatus(api, 30_000)
   const seconds = data?.idle_unload_s ?? 900
-  const label = seconds <= 0 ? 'UNLOAD never'
-    : seconds >= 3600 ? `UNLOAD ${seconds / 3600}h`
-    : `UNLOAD ${Math.round(seconds / 60)}m`
-  // Option styling: native selects render the popup with the OPTION's own
-  // background/color in Chromium, so leave the select transparent (it blends
-  // with the status bar in every theme) and paint the options with theme vars
-  // — otherwise items are invisible on dark themes.
-  const optStyle = {
-    background: 'var(--card, #1e1e1e)',
-    color: 'var(--foreground, #ddd)',
-  }
-  return jsx('select', {
-    value: String(seconds),
-    onChange: (e) => {
+  const current = STEPS.find((s) => s.seconds === seconds) || STEPS[0]
+  const next = STEPS[(STEPS.indexOf(current) + 1) % STEPS.length]
+  return jsx('div', {
+    onClick: (e) => {
       e.preventDefault()
-      const v = parseInt(e.target.value, 10)
-      if (v === seconds) return
-      api('/idle-unload', { method: 'POST', body: { seconds: v } })
+      api('/idle-unload', { method: 'POST', body: { seconds: next.seconds } })
         .catch(() => {})
         .finally(() => {
           queryClient.invalidateQueries({ queryKey: STATUS_KEY })
@@ -146,21 +149,13 @@ function UnloadChip({ api }) {
         })
     },
     style: {
-      cursor: 'pointer', margin: '0 2px', border: 'none', padding: '0 2px',
-      fontSize: 10, whiteSpace: 'nowrap', userSelect: 'none',
-      background: 'transparent',
+      display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 3,
+      padding: '0 6px', fontSize: 10, whiteSpace: 'nowrap', userSelect: 'none',
       color: seconds <= 0 ? 'var(--ui-warn, var(--muted-foreground))'
-        : 'var(--muted-foreground, var(--foreground))',
+        : 'var(--ui-text-quaternary, var(--muted-foreground))',
     },
-    title: 'Idle unload for loaded models. After this many minutes without token activity the router frees VRAM; the next request reloads the model automatically. "never" keeps models resident until the gateway dies (VRAM stays occupied). Applies to the running router within ~1 minute.',
-    children: [
-      jsx('option', { value: '900', style: optStyle }, 'UNLOAD 15m (default)'),
-      jsx('option', { value: '1800', style: optStyle }, 'UNLOAD 30m'),
-      jsx('option', { value: '3600', style: optStyle }, 'UNLOAD 1h'),
-      jsx('option', { value: '7200', style: optStyle }, 'UNLOAD 2h'),
-      jsx('option', { value: '10800', style: optStyle }, 'UNLOAD 3h'),
-      jsx('option', { value: '0', style: optStyle }, 'UNLOAD never'),
-    ],
+    title: `Idle unload: models stay in VRAM ${current.label === 'never' ? 'indefinitely (until the gateway dies)' : current.label + ' without token activity, then free VRAM; the next request reloads automatically'}. Click to switch to ${next.label === 'never' ? 'NEVER unload' : next.label}. Applies to the running router within ~1 minute.`,
+    children: `UNLOAD ${current.label} ⇄ ${next.label === 'never' ? 'never' : next.label}`,
   })
 }
 
