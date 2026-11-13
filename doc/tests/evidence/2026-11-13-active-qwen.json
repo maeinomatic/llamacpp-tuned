@@ -1,0 +1,25 @@
+{
+  "model": "qwen35-9b-mtp-q4km",
+  "stream_done": true,
+  "response": "Hello!",
+  "keepalives": 5,
+  "tool_calls": [
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "arguments": "{\"path\":\"C:/test/main.py\"}"
+      },
+      "id": "Xcbx02Olf3gfuwZNKa1D0MVTWxa42T70"
+    }
+  ],
+  "tool_call_json_valid": true,
+  "loaded_after": [
+    "qwen35-9b-mtp-q4km"
+  ],
+  "spec_type": "ngram-mod",
+  "context": "65536",
+  "health": {
+    "status": "ok"
+  }
+}

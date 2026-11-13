@@ -1,0 +1,322 @@
+[
+ {
+  "backend": "vulkan",
+  "model": "qwen3-4b",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 23.0,
+   "pp_tps": 531.3,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 24.9,
+   "pp_tps": 106.7,
+   "gen_n": 300
+  },
+  "acceptance": null
+ },
+ {
+  "backend": "vulkan",
+  "model": "qwen3-4b",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 36.4,
+   "pp_tps": 520.3,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 39.6,
+   "pp_tps": 113.0,
+   "gen_n": 300
+  },
+  "acceptance": 0.764
+ },
+ {
+  "backend": "vulkan",
+  "model": "qwen35-9b",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 13.1,
+   "pp_tps": 179.5,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 12.4,
+   "pp_tps": 9.3,
+   "gen_n": 300
+  },
+  "acceptance": null
+ },
+ {
+  "backend": "vulkan",
+  "model": "qwen35-9b",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 44.2,
+   "pp_tps": 263.1,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 12.6,
+   "pp_tps": 34.0,
+   "gen_n": 300
+  },
+  "acceptance": 1.0
+ },
+ {
+  "backend": "vulkan",
+  "model": "ornith-9b",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 13.4,
+   "pp_tps": 255.2,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 13.5,
+   "pp_tps": 36.9,
+   "gen_n": 300
+  },
+  "acceptance": null
+ },
+ {
+  "backend": "vulkan",
+  "model": "ornith-9b",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 49.8,
+   "pp_tps": 287.4,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 13.9,
+   "pp_tps": 38.3,
+   "gen_n": 300
+  },
+  "acceptance": 1.0
+ },
+ {
+  "backend": "vulkan",
+  "model": "gemma4-12b",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 7.3,
+   "pp_tps": 96.0,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 8.1,
+   "pp_tps": 2.7,
+   "gen_n": 292
+  },
+  "acceptance": null
+ },
+ {
+  "backend": "vulkan",
+  "model": "gemma4-12b",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 28.6,
+   "pp_tps": 166.6,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 9.1,
+   "pp_tps": 23.3,
+   "gen_n": 292
+  },
+  "acceptance": 0.99
+ },
+ {
+  "backend": "vulkan",
+  "model": "ornith-9b-unc",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 13.7,
+   "pp_tps": 276.8,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 13.5,
+   "pp_tps": 40.2,
+   "gen_n": 300
+  },
+  "acceptance": null
+ },
+ {
+  "backend": "vulkan",
+  "model": "ornith-9b-unc",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 50.9,
+   "pp_tps": 330.4,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 13.8,
+   "pp_tps": 40.6,
+   "gen_n": 300
+  },
+  "acceptance": 1.0
+ },
+ {
+  "backend": "rocm",
+  "model": "qwen3-4b",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 21.3,
+   "pp_tps": 519.7,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 22.9,
+   "pp_tps": 146.4,
+   "gen_n": 300
+  },
+  "acceptance": null
+ },
+ {
+  "backend": "rocm",
+  "model": "qwen3-4b",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 56.8,
+   "pp_tps": 542.2,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 48.0,
+   "pp_tps": 231.1,
+   "gen_n": 300
+  },
+  "acceptance": 0.932
+ },
+ {
+  "backend": "rocm",
+  "model": "qwen35-9b",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 11.6,
+   "pp_tps": 279.2,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 12.2,
+   "pp_tps": 55.6,
+   "gen_n": 300
+  },
+  "acceptance": null
+ },
+ {
+  "backend": "rocm",
+  "model": "qwen35-9b",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 89.6,
+   "pp_tps": 336.9,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 12.5,
+   "pp_tps": 63.4,
+   "gen_n": 300
+  },
+  "acceptance": 1.0
+ },
+ {
+  "backend": "rocm",
+  "model": "ornith-9b",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 12.4,
+   "pp_tps": 267.5,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 13.1,
+   "pp_tps": 57.7,
+   "gen_n": 300
+  },
+  "acceptance": null
+ },
+ {
+  "backend": "rocm",
+  "model": "ornith-9b",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 92.3,
+   "pp_tps": 326.4,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 13.0,
+   "pp_tps": 63.3,
+   "gen_n": 300
+  },
+  "acceptance": 1.0
+ },
+ {
+  "backend": "rocm",
+  "model": "gemma4-12b",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 8.8,
+   "pp_tps": 187.5,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 10.3,
+   "pp_tps": 41.1,
+   "gen_n": 290
+  },
+  "acceptance": null
+ },
+ {
+  "backend": "rocm",
+  "model": "gemma4-12b",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 56.3,
+   "pp_tps": 203.3,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 10.3,
+   "pp_tps": 47.1,
+   "gen_n": 290
+  },
+  "acceptance": 0.99
+ },
+ {
+  "backend": "rocm",
+  "model": "ornith-9b-unc",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 12.4,
+   "pp_tps": 271.5,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 12.8,
+   "pp_tps": 58.7,
+   "gen_n": 300
+  },
+  "acceptance": null
+ },
+ {
+  "backend": "rocm",
+  "model": "ornith-9b-unc",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 94.4,
+   "pp_tps": 336.2,
+   "gen_n": 1500
+  },
+  "chat": {
+   "gen_tps": 12.9,
+   "pp_tps": 66.7,
+   "gen_n": 300
+  },
+  "acceptance": 1.0
+ }
+]

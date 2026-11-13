@@ -1,0 +1,139 @@
+{
+  "archived_at_utc": "2026-11-13T21:11:35.312948+00:00",
+  "purpose": "Preserve existing evidence; no benchmarks or GPU tests re-run by this import.",
+  "files": [
+    {
+      "source": "C:\\Users\\jup03\\AppData\\Local\\hermes\\plugins\\llamacpp-tuned\\CHANGELOG_LOCAL.md",
+      "destination": "doc/changelogs/2026-11-13-proxy-reliability-and-rocm-activation.md",
+      "sha256": "ec857e7caa46178127caadf386c40bf40650f1eb811546cf4dda841d1711861e",
+      "bytes": 12593,
+      "operation": "move"
+    },
+    {
+      "source": "C:\\Users\\jup03\\AppData\\Local\\hermes\\plugins\\llamacpp-tuned\\REPAIR_PLAN.md",
+      "destination": "doc/plans/2026-11-13-proxy-repair-plan.md",
+      "sha256": "a1acabc101ccd64550233e46a95f56651df58a8c58dd713d75c9c79abc48447d",
+      "bytes": 2128,
+      "operation": "move"
+    },
+    {
+      "source": "C:\\Users\\jup03\\llama-local\\BENCHMARKS.md",
+      "destination": "doc/benchmarks/amd-890m/2026-11-11/report-original.md",
+      "sha256": "21aadeec819bbaa87bbef7d06ab63d0962b1f9d8bc157ccf5310acaac7ac6c4d",
+      "bytes": 13244,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\llama-local\\README.md",
+      "destination": "doc/benchmarks/amd-890m/2026-11-11/setup-notes-original.md",
+      "sha256": "be57d80fbb17a1ed18a8dd49b26953fe73ecec7106d536311c3c9f2ac7f3e4e5",
+      "bytes": 9071,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\llama-local\\results.json",
+      "destination": "doc/benchmarks/amd-890m/2026-11-11/results.json",
+      "sha256": "195304814662eb77d8e6f9083249e66c0b43fbc398ddac368dbb1566a5e90664",
+      "bytes": 5122,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\llama-local\\unc_verify.json",
+      "destination": "doc/benchmarks/amd-890m/2026-11-11/variant-verification.json",
+      "sha256": "58164a3bdb0b32be1dfbf3bf647b5c7d927fd33f0a2aed8f618ba46231b5cbdd",
+      "bytes": 2448,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\llama-local\\matrix_bench.py",
+      "destination": "doc/benchmarks/amd-890m/2026-11-11/scripts/matrix_bench.py",
+      "sha256": "038bc8ff71e950ad662105499a36b97045f417a7f5d8e70d96b680d0c4a53f5d",
+      "bytes": 5051,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\llama-local\\verify_unc.py",
+      "destination": "doc/benchmarks/amd-890m/2026-11-11/scripts/verify_unc.py",
+      "sha256": "abd7b79dde5962ecee7cf545885efb2966d0276f3e29a926aa85ef7ddf27d8d6",
+      "bytes": 4217,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\llama-local\\doc.txt",
+      "destination": "doc/benchmarks/amd-890m/2026-11-11/inputs/doc.txt",
+      "sha256": "b12ffe671cd8b44a941dfafb890f5086c42c368e1813a29d9728bdbf4aa0bd3f",
+      "bytes": 12146,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\AppData\\Local\\hermes\\cache\\scratch\\llamacpp-review-7ff3582\\REVIEW.md",
+      "destination": "doc/reviews/2026-11-13-incoming-main-review.md",
+      "sha256": "26caaf5b4d3ee2f631e6ff657dbd4eae95514c4670e8528350447460da80a11e",
+      "bytes": 8340,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\AppData\\Local\\hermes\\cache\\scratch\\llamacpp-review-7ff3582\\review-results.json",
+      "destination": "doc/reviews/evidence/2026-11-13-incoming-main.json",
+      "sha256": "d710fe7bfa5f27f7782b96e0dc565bf4b09874bdc69f702d2bd09c97ef291f42",
+      "bytes": 4411,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\AppData\\Local\\hermes\\cache\\scratch\\llamacpp-repaired-real-smoke\\results.json",
+      "destination": "doc/tests/evidence/2026-11-13-isolated-model-smoke.json",
+      "sha256": "900599473398bd7341dd892f766707ff91c194632d8bcb57a85be7d54de3b957",
+      "bytes": 3531,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\AppData\\Local\\hermes\\cache\\scratch\\llamacpp-repaired-real-smoke\\presets.ini",
+      "destination": "doc/tests/evidence/2026-11-13-isolated-presets.ini",
+      "sha256": "8f37479ddb3fbf03b84a7d319fab193db97fd3fdc0669862c4c3c12245c50ce5",
+      "bytes": 2330,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\AppData\\Local\\hermes\\cache\\scratch\\llamacpp-live-activation.json",
+      "destination": "doc/tests/evidence/2026-11-13-live-activation.json",
+      "sha256": "4b6a14164e42189a1a6e8bd259bd435d78ea591429be2434a08ab85b32f335ae",
+      "bytes": 1230,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\AppData\\Local\\hermes\\cache\\scratch\\active-qwen-results.json",
+      "destination": "doc/tests/evidence/2026-11-13-active-qwen.json",
+      "sha256": "a1f8b5eb2eb6ca2e5e6378130d6190d4652e2b25e7b68a6460eb3a950a4faaea",
+      "bytes": 515,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\AppData\\Local\\hermes\\backups\\llamacpp-tuned-pre-proxy-fdfadc0\\verification\\cuda-preset-compatibility.json",
+      "destination": "doc/compatibility/evidence/2026-11-13-cuda-preset-compatibility.json",
+      "sha256": "bde258d6182c3ba584036347df680b1097feddb8ae63637f2e99c16b05d65c31",
+      "bytes": 4794,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\AppData\\Local\\hermes\\cache\\scratch\\check_cuda_tune_compatibility.py",
+      "destination": "doc/compatibility/evidence/2026-11-13-cuda-preset-check-original.py",
+      "sha256": "67d1ed539ccf7577695a7f8d4938ab012b19e9fad22bb64321a950190f1deb6a",
+      "bytes": 4288,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\AppData\\Local\\hermes\\cache\\scratch\\llamacpp_real_smoke.py",
+      "destination": "doc/tests/evidence/2026-11-13-isolated-smoke-original.py",
+      "sha256": "410c1f512cdf638b23f66c7ada7c84b342d98120367371c36270ed60848c2f9e",
+      "bytes": 6918,
+      "operation": "copy"
+    },
+    {
+      "source": "C:\\Users\\jup03\\AppData\\Local\\hermes\\cache\\scratch\\test_active_qwen.py",
+      "destination": "doc/tests/evidence/2026-11-13-active-qwen-original.py",
+      "sha256": "aa715660c586761f46a8e303709149a10eccf2adc2a44d93708d0cbecf23da10",
+      "bytes": 2811,
+      "operation": "copy"
+    }
+  ]
+}

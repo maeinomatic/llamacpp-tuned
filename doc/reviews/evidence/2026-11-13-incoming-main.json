@@ -1,0 +1,125 @@
+{
+  "old_preset_count": 7,
+  "new_preset_count": 7,
+  "planning_vram_bytes": 26878243635,
+  "presets_byte_identical": true,
+  "engine_resolution": {
+    "old": "C:/Users/jup03/llama-local/llama-rocm10/llama-server.exe",
+    "new": "C:/Users/jup03/llama-local/llama-rocm10/llama-server.exe"
+  },
+  "generated_models": {
+    "DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-Q4_K_M": {
+      "model": "C:/Users/jup03/AppData/Local/hermes/models/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-Q4_K_M.gguf",
+      "flash-attn": "on",
+      "ubatch-size": "512",
+      "ctx-size": "65536",
+      "cache-type-k": "q8_0",
+      "cache-type-v": "q8_0",
+      "spec-type": "ngram-mod",
+      "spec-ngram-mod-n-max": "16",
+      "spec-ngram-mod-n-min": "2",
+      "spec-ngram-mod-n-match": "24"
+    },
+    "gemma4-12b-ud-q3xl": {
+      "model": "C:/Users/jup03/AppData/Local/hermes/models/gemma4-12b-ud-q3xl.gguf",
+      "flash-attn": "on",
+      "ubatch-size": "512",
+      "ctx-size": "65536",
+      "cache-type-k": "q8_0",
+      "cache-type-v": "q8_0",
+      "spec-type": "ngram-mod",
+      "spec-ngram-mod-n-max": "16",
+      "spec-ngram-mod-n-min": "2",
+      "spec-ngram-mod-n-match": "24"
+    },
+    "Huihui-gpt-oss-20b-abliterated-v2-MXFP4_MOE": {
+      "model": "C:/Users/jup03/AppData/Local/hermes/models/Huihui-gpt-oss-20b-abliterated-v2-MXFP4_MOE.gguf",
+      "flash-attn": "on",
+      "ubatch-size": "512",
+      "override-tensor": "blk\\.\\d+\\.ffn_.*_exps\\.weight=CPU",
+      "cache-type-k": "q4_0",
+      "cache-type-v": "q4_0",
+      "ctx-size": "131072",
+      "spec-type": "ngram-mod",
+      "spec-ngram-mod-n-max": "10",
+      "spec-ngram-mod-n-min": "2",
+      "load-mode": "none"
+    },
+    "ornith-15-9b-q4km": {
+      "model": "C:/Users/jup03/AppData/Local/hermes/models/ornith-15-9b-q4km.gguf",
+      "flash-attn": "on",
+      "ubatch-size": "512",
+      "ctx-size": "65536",
+      "cache-type-k": "q8_0",
+      "cache-type-v": "q8_0",
+      "spec-type": "ngram-mod",
+      "spec-ngram-mod-n-max": "16",
+      "spec-ngram-mod-n-min": "2",
+      "spec-ngram-mod-n-match": "24"
+    },
+    "ornith-15-9b-unc-q4km": {
+      "model": "C:/Users/jup03/AppData/Local/hermes/models/ornith-15-9b-unc-q4km.gguf",
+      "flash-attn": "on",
+      "ubatch-size": "512",
+      "ctx-size": "65536",
+      "cache-type-k": "q8_0",
+      "cache-type-v": "q8_0",
+      "spec-type": "ngram-mod",
+      "spec-ngram-mod-n-max": "16",
+      "spec-ngram-mod-n-min": "2",
+      "spec-ngram-mod-n-match": "24"
+    },
+    "Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q4_K_M": {
+      "model": "C:/Users/jup03/AppData/Local/hermes/models/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
+      "flash-attn": "on",
+      "ubatch-size": "512",
+      "ctx-size": "65536",
+      "cache-type-k": "q8_0",
+      "cache-type-v": "q8_0",
+      "spec-type": "ngram-mod",
+      "spec-ngram-mod-n-max": "16",
+      "spec-ngram-mod-n-min": "2",
+      "spec-ngram-mod-n-match": "24"
+    },
+    "qwen35-9b-mtp-q4km": {
+      "model": "C:/Users/jup03/AppData/Local/hermes/models/qwen35-9b-mtp-q4km.gguf",
+      "flash-attn": "on",
+      "ubatch-size": "512",
+      "ctx-size": "65536",
+      "cache-type-k": "q8_0",
+      "cache-type-v": "q8_0",
+      "spec-type": "ngram-mod",
+      "spec-ngram-mod-n-max": "16",
+      "spec-ngram-mod-n-min": "2",
+      "spec-ngram-mod-n-match": "24"
+    }
+  },
+  "incoming_vs_live_tune_differences": {},
+  "cuda_cache_flags_on_amd": false,
+  "preset_flags_in_engine_help": {
+    "cache-type-k": true,
+    "cache-type-v": true,
+    "ctx-size": true,
+    "flash-attn": true,
+    "load-mode": true,
+    "model": true,
+    "override-tensor": true,
+    "spec-ngram-mod-n-match": true,
+    "spec-ngram-mod-n-max": true,
+    "spec-ngram-mod-n-min": true,
+    "spec-type": true,
+    "ubatch-size": true
+  },
+  "ordered_chat_route_matches": [
+    "_proxy_any",
+    "_proxy_chat"
+  ],
+  "actual_route_first_chunk_lag_s": 0.352,
+  "actual_route_first_chunk_contains_done": true,
+  "actual_route_concurrent_same_model_upstream_requests": 2,
+  "intended_handler_upstream_500_client_status": 200,
+  "intended_handler_cold_load_headers_delay_s": 6.194,
+  "intended_handler_cold_load_first_chunk_is_ping": false,
+  "proxy_stop_called_when_enabling": true,
+  "installed_settings_unchanged": true
+}

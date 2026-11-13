@@ -4,9 +4,21 @@ A [Hermes Agent](https://github.com/NousResearch/hermes-agent) plugin (agent bac
 Desktop status-bar chip) that runs a **tuned llama.cpp router** on a small-VRAM GPU.
 
 Built and benchmarked on an RTX 3070 8 GB / i7-13700K / 64 GB DDR5 with Qwen3.5 staged
-GGUFs. It serves a llama.cpp router (b12255+) on port 8080, which the Hermes desktop app
-auto-detects and uses instead of its managed runtime — no core patches, regular update
-path preserved.
+GGUFs. Its public inference proxy listens on port 8080, which the Hermes desktop app
+auto-detects; the actual llama.cpp router runs internally on port 8081 by default.
+No core patches are required, and the regular Hermes update path is preserved.
+
+## Documentation and maintenance
+
+Start at [doc/README.md](doc/README.md) for [benchmarks](doc/benchmarks/README.md),
+[test evidence](doc/tests/README.md), [changelogs](doc/changelogs/README.md),
+[hardware compatibility](doc/compatibility/README.md) and
+[activation/troubleshooting](doc/operations/README.md).
+
+[AGENTS.md](AGENTS.md) requires a dated changelog entry for every change, including
+fixes and documentation maintenance. Use the [changelog template](doc/templates/changelog.md)
+and update its index before calling work complete. `.hermes.md` points Hermes at
+the same rules from repository subdirectories. No commit or push without explicit approval.
 
 ## What "tuned" means here
 
@@ -148,7 +160,7 @@ Example with every key (all optional — omit what you don't need):
 |---|---|---|
 | `engine_path` | *(empty)* | Full path to an existing `llama-server` binary (CUDA/Vulkan/ROCm/any build). **Wins over every other engine source** — this is how you use your own llama.cpp. |
 | `backend` | *(auto)* | Which llama.cpp release asset `/install` downloads: `cuda` (auto when `nvidia-smi` is present), `vulkan`, or `cpu`. `rocm` maps to the Vulkan build (no official HIP assets exist). |
-| `port` | `8080` | Port for the router. 8080 is Hermes' default external-server probe port. |
+| `port` | `8080` | Public proxy port; the internal llama.cpp router uses `port + 1`. 8080 is Hermes' default external-server probe port. |
 | `idle_unload_s` | `900` | Seconds without token activity before a loaded model is unloaded to free VRAM. |
 | `poll_s` | `60` | Idle-check interval. |
 | `moe_ctx_cap` | `262144` | Context ceiling for MoE models (further capped by what q4 KV fits in VRAM). |
@@ -184,6 +196,18 @@ dashboard/             agent half (FastAPI backend mounted at /api/plugins/llama
   settings.json        per-machine overrides (gitignored; create as needed)
 desktop/               Desktop half (status-bar chip, hot-reloaded)
   plugin.js
+AGENTS.md              repository rules, including a required changelog per change
+.hermes.md             Hermes discovery bridge to AGENTS.md
+tests/                 executable regression tests (fixture-based, no GPU required)
+doc/                   indexed project documentation
+  benchmarks/          hardware-specific performance records and raw evidence
+  changelogs/          dated change entries
+  tests/               test reports and smoke-test evidence (not test implementation)
+  compatibility/       backend/hardware assessments
+  operations/          activation and troubleshooting
+  plans/               implementation plans
+  reviews/             historical review findings
+  templates/           changelog and benchmark templates
 ```
 
 ## Tested setup (development machine)

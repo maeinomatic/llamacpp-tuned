@@ -546,201 +546,364 @@ def _router_port() -> int:
 _proxy_app = FastAPI()
 _proxy_server = None
 _proxy_thread = None
-_chat_locks: dict = {}
+_residency_lock = asyncio.Lock()  # router has models-max=1, including different models
 
 
 def _upstream() -> str:
     return f"http://127.0.0.1:{_router_port()}"
 
 
-async def _passthrough(request: Request, body: bytes | None, stream: bool):
+async def _passthrough(request: Request, body: bytes | None):
+    """Keep the upstream alive until the downstream consumes/closes its body."""
     import httpx
     from fastapi.responses import StreamingResponse
     headers = {k: v for k, v in request.headers.items()
                if k.lower() in ("content-type", "accept", "authorization")}
+    # Raw forwarding must not negotiate compression that the downstream did not ask for.
+    headers["accept-encoding"] = "identity"
     url = _upstream() + request.url.path
     if request.url.query:
         url += "?" + str(request.url.query)
-    timeout = httpx.Timeout(None if stream else 30, connect=5)
+    client = httpx.AsyncClient(timeout=httpx.Timeout(None, connect=5))
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            if stream:
-                req = client.build_request(request.method, url, content=body, headers=headers)
-                resp = await client.send(req, stream=True)
-                async def gen():
-                    try:
-                        async for chunk in resp.aiter_raw():
-                            yield chunk
-                    finally:
-                        await resp.aclose()
-                return StreamingResponse(gen(), status_code=resp.status_code,
-                                         media_type=resp.headers.get("content-type"))
-            resp = await client.request(request.method, url, content=body, headers=headers)
-            from fastapi.responses import Response
-            return Response(content=resp.content, status_code=resp.status_code,
-                            media_type=resp.headers.get("content-type"))
-    except Exception as exc:
-        raise HTTPException(502, f"router unreachable: {exc}")
+        req = client.build_request(request.method, url, content=body, headers=headers)
+        resp = await client.send(req, stream=True)
+    except BaseException as exc:
+        await client.aclose()
+        if not isinstance(exc, Exception):
+            raise
+        raise HTTPException(502, f"router unreachable: {exc}") from exc
+
+    async def gen():
+        try:
+            async for chunk in resp.aiter_raw():
+                yield chunk
+        finally:
+            await resp.aclose()
+            await client.aclose()
+
+    forwarded = {k: v for k, v in resp.headers.items()
+                 if k.lower() in ("content-type", "content-encoding", "cache-control")}
+    return StreamingResponse(gen(), status_code=resp.status_code, headers=forwarded)
 
 
-@_proxy_app.api_route("/{path:path}", methods=["GET", "POST", "DELETE"])
 async def _proxy_any(request: Request):
+    if request.method == "POST" and request.url.path in ("/models/load", "/models/unload"):
+        return await _proxy_chat(request)
     body = await request.body()
-    return await _passthrough(request, body or None, False)
+    return await _passthrough(request, body or None)
+
+
+_HEARTBEAT_S = 4.0
+_LOAD_TIMEOUT_S = 900.0
+_background_loads: set = set()
+
+
+async def _check_upstream(response):
+    """Preserve the engine diagnostic instead of replacing it with an HTTPX URL."""
+    if response.is_error:
+        raw = await response.aread()
+        try:
+            payload = json.loads(raw)
+            error = payload.get("error", payload)
+            message = error.get("message", str(error)) if isinstance(error, dict) else str(error)
+        except (ValueError, AttributeError):
+            message = raw.decode(errors="replace")[:2000]
+        raise HTTPException(response.status_code, message or response.reason_phrase)
+
+
+async def _ensure_resident(model, headers):
+    """A load has its own lifetime, bounded independently of the HTTP client."""
+    import httpx
+    async with asyncio.timeout(_LOAD_TIMEOUT_S):
+        async with httpx.AsyncClient(timeout=httpx.Timeout(None, connect=5), headers=headers) as client:
+            response = await client.get(_upstream() + "/models")
+            await _check_upstream(response)
+            models = response.json().get("data", [])
+            match = next((m for m in models if m.get("id") == model), None)
+            if match is None:
+                raise HTTPException(404, f"Unknown staged model: {model}")
+            if (match.get("status") or {}).get("value") == "loaded":
+                return
+            # /models/unload acknowledges before the child exits. The engine's
+            # capacity check still counts it until its status becomes unloaded.
+            # Free an old resident explicitly and wait, even on model switches
+            # that did not originate from an explicit unload request.
+            while True:
+                busy = [m for m in models
+                        if ((m.get("id") != model and (m.get("status") or {}).get("value") in ("loaded", "loading", "unloading"))
+                            or (m.get("status") or {}).get("value") == "unloading")]
+                if not busy:
+                    break
+                for other in busy:
+                    if (other.get("status") or {}).get("value") == "loaded":
+                        response = await client.post(_upstream() + "/models/unload", json={"model": other["id"]})
+                        await _check_upstream(response)
+                await asyncio.sleep(.1)
+                response = await client.get(_upstream() + "/models")
+                await _check_upstream(response)
+                models = response.json().get("data", [])
+            match = next((m for m in models if m.get("id") == model), {})
+            if (match.get("status") or {}).get("value") != "loading":
+                response = await client.post(_upstream() + "/models/load", json={"model": model})
+                await _check_upstream(response)
+            while True:
+                response = await client.get(_upstream() + "/models")
+                await _check_upstream(response)
+                match = next((m for m in response.json().get("data", []) if m.get("id") == model), {})
+                state = (match.get("status") or {}).get("value")
+                if state == "loaded":
+                    return
+                if state not in ("loading",):
+                    raise HTTPException(502, f"Model {model} did not become resident ({state})")
+                await asyncio.sleep(.25)
+
+
+def _release_after_load(task, lock):
+    """A disconnected load retains the residency lock until the load finishes."""
+    _background_loads.discard(task)
+    try:
+        task.exception()
+    except asyncio.CancelledError:
+        pass
+    finally:
+        lock.release()
+
+
+async def _chat_exchange(request, body, model, stream, queue):
+    import httpx
+    from fastapi.responses import Response
+    headers = {k: v for k, v in request.headers.items()
+               if k.lower() in ("content-type", "accept", "authorization")}
+    headers["accept-encoding"] = "identity"
+    lock = _residency_lock
+    await lock.acquire()
+    load = None
+    try:
+        if await request.is_disconnected():
+            return Response(status_code=204)
+        if model and request.url.path != "/models/unload":
+            load = asyncio.create_task(_ensure_resident(model, headers))
+            _background_loads.add(load)
+            await asyncio.shield(load)
+        if request.url.path == "/models/load":
+            return Response(content='{"success":true}', media_type="application/json")
+        async with httpx.AsyncClient(timeout=httpx.Timeout(None, connect=5)) as client:
+            url = _upstream() + request.url.path
+            if request.url.query:
+                url += "?" + request.url.query
+            async with client.stream("POST", url, content=body, headers=headers) as response:
+                if not stream:
+                    return Response(await response.aread(), status_code=response.status_code,
+                                    headers={"content-type": response.headers.get("content-type", "application/json")})
+                await _check_upstream(response)
+                # Heartbeats are SSE events too. Never splice one into an unfinished
+                # upstream event (HTTP chunks are NOT guaranteed to be SSE frames).
+                lines = []
+                async for line in response.aiter_lines():
+                    if line:
+                        lines.append(line)
+                    else:
+                        if lines:
+                            await queue.put(("chunk", ("\n".join(lines) + "\n\n").encode()))
+                            lines.clear()
+                if lines:
+                    raise HTTPException(502, "Router closed an incomplete SSE event")
+    finally:
+        if load is not None and not load.done():
+            # Cancellation must not abort an engine load or permit a second load
+            # to race it. Retain the lock until its bounded background task ends.
+            load.add_done_callback(lambda task: _release_after_load(task, lock))
+        else:
+            if load is not None:
+                _background_loads.discard(load)
+            lock.release()
 
 
 @_proxy_app.post("/v1/chat/completions")
 @_proxy_app.post("/completion")
 async def _proxy_chat(request: Request):
-    """Serialize per model AND keep the client's first-chunk watchdog fed.
-
-    Two failure modes this prevents (both observed 2026-11-13):
-    1. Hermes' reconnect loop retries a 500 "model limit reached" without
-       backoff while a model loads — 12k+ rejected requests in minutes.
-    2. A cold load + large-prompt prefill takes longer than Hermes' 60 s
-       first-chunk watchdog; the reconnect ABORTS the in-flight load, and
-       every retry restarts the load it just killed — an infinite loop.
-
-    So: the model is loaded via /models/load (which proceeds independently of
-    any client), the handler polls until it is resident, and a streaming
-    client receives SSE comment keep-alives (`: ping`) every 4 s during the
-    wait — any bytes on the stream satisfy the watchdog, so nothing aborts
-    the load. Real tokens take over once generation starts. Disconnected
-    clients are dropped without touching the load."""
-    import asyncio
+    """Return SSE immediately; heartbeat through queueing, loading AND prefill."""
     import httpx
-    from fastapi.responses import StreamingResponse, Response
+    from fastapi.responses import StreamingResponse
     body = await request.body()
-    model = ""
-    stream_wanted = "text/event-stream" in (request.headers.get("accept") or "")
     try:
-        parsed = json.loads(body or b"{}")
-        model = str(parsed.get("model") or "")
-        stream_wanted = stream_wanted or bool(parsed.get("stream"))
-    except Exception:
-        pass
-    if await request.is_disconnected():
-        return Response(status_code=204)
-
-    async def _router_json(path, payload=None):
-        async with httpx.AsyncClient(timeout=httpx.Timeout(600, connect=5)) as c:
-            r = await c.post(_upstream() + path, json=payload) if payload is not None \
-                else await c.get(_upstream() + path)
-            return r.json()
-
-    async def _model_status(name):
+        parsed = json.loads(body)
+        if not isinstance(parsed, dict):
+            raise ValueError("Expected a JSON object")
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(400, "Expected a JSON request object") from exc
+    model = parsed.get("model") or ""
+    if not isinstance(model, str):
+        raise HTTPException(400, "model must be a string")
+    stream = bool(parsed.get("stream"))
+    if request.url.path in ("/models/load", "/models/unload"):
+        if not model or stream:
+            raise HTTPException(400, "Model control requests require a non-empty model and stream=false")
+    if not stream:
+        task = asyncio.create_task(_chat_exchange(request, body, model, False, None))
         try:
-            data = await _router_json("/models")
-            for m in data.get("data", []):
-                if m.get("id") == name:
-                    return (m.get("status") or {}).get("value", "")
-        except Exception:
-            pass
-        return ""
-
-    # not resident? start the load detached from this client's lifetime
-    if model and await _model_status(model) != "loaded":
-        asyncio.get_running_loop().create_task(_router_json("/models/load", {"model": model}))
-        deadline = asyncio.get_running_loop().time() + 900
-        while await _model_status(model) != "loaded":
-            if asyncio.get_running_loop().time() > deadline:
-                raise HTTPException(504, f"model {model} did not finish loading")
-            if await request.is_disconnected():
-                return Response(status_code=204)  # load keeps going for the next request
-            await asyncio.sleep(2)
-
-    lock = _chat_locks.setdefault(model or "_default", asyncio.Lock())
-
-    async def _generate():
-        # wait for the per-model slot, feeding keep-alives while locked out
-        while True:
-            try:
-                await asyncio.wait_for(lock.acquire(), timeout=4)
-                break
-            except asyncio.TimeoutError:
+            while True:
+                done, _ = await asyncio.wait({task}, timeout=.1)
+                if done:
+                    return task.result()
                 if await request.is_disconnected():
-                    return
-                if stream_wanted:
-                    yield b": ping\n\n"
-        try:
-            if await request.is_disconnected():
-                return
-            async with httpx.AsyncClient(timeout=httpx.Timeout(None, connect=5)) as client:
-                req = client.build_request("POST", _upstream() + request.url.path,
-                                           content=body,
-                                           headers={"content-type": "application/json"})
-                resp = await client.send(req, stream=True)
-                if not stream_wanted:
-                    content = b""
-                    async for chunk in resp.aiter_raw():
-                        content += chunk
-                    yield content
-                    return
-                async for chunk in resp.aiter_raw():
-                    yield chunk
+                    from fastapi.responses import Response
+                    return Response(status_code=204)
+        except httpx.HTTPError as exc:
+            status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else 502
+            raise HTTPException(status, str(exc)) from exc
+        except TimeoutError as exc:
+            raise HTTPException(504, "Model load timed out") from exc
         finally:
-            lock.release()
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass  # any original request error is propagated above
 
-    headers = {"content-type": "text/event-stream"} if stream_wanted else \
-        {"content-type": "application/json"}
-    return StreamingResponse(_generate(), headers=headers)
+    async def relay():
+        queue = asyncio.Queue(maxsize=16)
+
+        async def produce():
+            try:
+                await _chat_exchange(request, body, model, True, queue)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                status = getattr(exc, "status_code", 502)
+                if isinstance(exc, httpx.HTTPStatusError):
+                    status = exc.response.status_code
+                if isinstance(exc, TimeoutError):
+                    status = 504
+                message = str(getattr(exc, "detail", exc)) or "Router request failed"
+                await queue.put(("chunk", ("data: " + json.dumps({"error": {
+                    "message": message, "type": "server_error", "code": status}}) + "\n\n").encode()))
+            await queue.put(("done", None))
+
+        task = asyncio.create_task(produce())
+        try:
+            while True:
+                try:
+                    kind, chunk = await asyncio.wait_for(queue.get(), timeout=_HEARTBEAT_S)
+                except asyncio.TimeoutError:
+                    if await request.is_disconnected():
+                        return
+                    yield b": ping\n\n"
+                    continue
+                if kind == "done":
+                    return
+                yield chunk
+        finally:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+    return StreamingResponse(relay(), media_type="text/event-stream",
+                             headers={"cache-control": "no-cache", "x-accel-buffering": "no"})
+
+
+# Register fallback last: Starlette selects the first matching route.
+_proxy_app.add_api_route("/{path:path}", _proxy_any, methods=["GET", "POST", "DELETE"])
+
+
+_proxy_lifecycle = threading.RLock()
+_PROXY_START_TIMEOUT_S = 10.0
 
 
 def _proxy_start():
-    """Start the 8080 proxy in a daemon thread; retries for up to ~60 s if the
-    port is still held by a dying previous router."""
-    global _proxy_server, _proxy_thread
-    import threading
-    import time as _time
+    """Bind before starting the thread so port errors are reported to the caller."""
+    global _proxy_server, _proxy_thread, _residency_lock
+    import socket
     import uvicorn
-    if _proxy_server is not None and not _proxy_server.should_exit:
-        return
-    port = int(_settings()["port"])
-
-    class _Server(uvicorn.Server):
-        def install_signal_handlers(self):
-            pass  # the gateway owns signal handling
-
-    config = uvicorn.Config(_proxy_app, host="127.0.0.1", port=port,
-                            log_level="warning", lifespan="off")
-    _proxy_server = _Server(config)
-
-    def _run():
-        for _ in range(60):
-            try:
-                if _proxy_server is not None:
-                    _proxy_server.run()
+    with _proxy_lifecycle:
+        if _proxy_thread is not None and _proxy_thread.is_alive():
+            if _proxy_server is not None and not _proxy_server.should_exit:
                 return
-            except OSError:
-                _time.sleep(1)  # port still held by the previous router
+            _proxy_stop()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            # No SO_REUSEADDR: on Windows it can steal another listener's port.
+            sock.bind(("127.0.0.1", int(_settings()["port"])))
+            sock.listen(128)
+            sock.setblocking(False)
+        except OSError as exc:
+            sock.close()
+            raise RuntimeError(f"Cannot bind tuned proxy: {exc}") from exc
+        _residency_lock = asyncio.Lock()  # a new server owns a new event loop
+        config = uvicorn.Config(_proxy_app, host="127.0.0.1", port=int(_settings()["port"]),
+                                log_level="warning", lifespan="off", timeout_graceful_shutdown=2)
+        server = uvicorn.Server(config)
+        _proxy_server = server
+        errors = []
 
-    _proxy_thread = threading.Thread(target=_run, daemon=True, name="llamacpp-tuned-proxy")
-    _proxy_thread.start()
+        def run():
+            try:
+                server.run(sockets=[sock])
+            except BaseException as exc:
+                errors.append(exc)
+            finally:
+                sock.close()
+
+        thread = threading.Thread(target=run, daemon=True, name="llamacpp-tuned-proxy")
+        _proxy_thread = thread
+        thread.start()
+        deadline = time.monotonic() + _PROXY_START_TIMEOUT_S
+        while not server.started:
+            if not thread.is_alive() or time.monotonic() >= deadline:
+                _proxy_stop()
+                raise RuntimeError(f"Tuned proxy failed to start: {errors}")
+            time.sleep(.02)
 
 
 def _proxy_stop():
-    global _proxy_server
-    if _proxy_server is not None:
-        _proxy_server.should_exit = True
+    """Do not return until the public listener and its event loop have closed."""
+    global _proxy_server, _proxy_thread
+    with _proxy_lifecycle:
+        if _proxy_server is not None:
+            _proxy_server.should_exit = True
+        if _proxy_thread is not None:
+            _proxy_thread.join(10)
+            if _proxy_thread.is_alive():
+                raise RuntimeError("Tuned proxy did not stop")
         _proxy_server = None
+        _proxy_thread = None
 
 
 def _spawn():
     global _engine_in_use
     ENGINE_DIR.mkdir(parents=True, exist_ok=True)
     _generate_presets()
-    log = open(LOG, "a")
     engine = _resolve_engine()
     _engine_in_use = engine
-    proc = subprocess.Popen(
-        [engine, "--models-preset", str(PRESET), "--models-max", "1",
-         "--port", str(_router_port()), "--metrics", "--host",
-         "127.0.0.1"],
-        stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if IS_WIN else 0)
-    _attach_watchdog(proc)
-    _proxy_start()
+    with open(LOG, "a") as log:
+        proc = subprocess.Popen(
+            [engine, "--models-preset", str(PRESET), "--models-max", "1",
+             "--port", str(_router_port()), "--metrics", "--host", "127.0.0.1"],
+            stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if IS_WIN else 0)
+    try:
+        _attach_watchdog(proc)
+        _proxy_start()
+    except BaseException:
+        proc.terminate()
+        proc.wait(timeout=30)
+        raise
     return proc
+
+
+def _stop_router():
+    """Roll back both halves on disable or partial startup failure."""
+    global _proc
+    proc, _proc = _proc, None
+    try:
+        _proxy_stop()
+    finally:
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
+            proc.wait(timeout=30)
 
 
 def _wait_healthy(timeout_s=180):
@@ -831,6 +994,7 @@ async def load_model(body: LoadRequest):
             _proc = await asyncio.to_thread(_spawn)
             if not await asyncio.to_thread(_wait_healthy):
                 tail = LOG.read_text(errors="replace")[-600:] if LOG.exists() else ""
+                await asyncio.to_thread(_stop_router)
                 raise HTTPException(502, "Tuned router failed to become healthy. " + tail)
         _ensure_threads()
         if body.model not in _loaded_models():
@@ -861,16 +1025,11 @@ async def set_mode(body: ModeRequest):
                 _proc = await asyncio.to_thread(_spawn)
                 if not await asyncio.to_thread(_wait_healthy):
                     tail = LOG.read_text(errors="replace")[-600:] if LOG.exists() else ""
+                    await asyncio.to_thread(_stop_router)
                     raise HTTPException(502, "Tuned router failed to become healthy. " + tail)
             _ensure_threads()
         else:
-            if _proc and _proc.poll() is None:
-                await asyncio.to_thread(_proc.terminate)
-                await asyncio.to_thread(_proc.wait, 30)
-            _proc = None
-        # chip OFF: free port 8080 too — Hermes' probe must see nothing there,
-        # exactly as when no router ever ran
-        await asyncio.to_thread(_proxy_stop)
+            await asyncio.to_thread(_stop_router)
         state = _read_state()
         if state["enabled"] != body.enabled:
             raise HTTPException(502, "Read-back did not confirm the requested mode.")

@@ -1,0 +1,1 @@
+PASS: UNLOAD menu removes its overlay and listeners on unmount

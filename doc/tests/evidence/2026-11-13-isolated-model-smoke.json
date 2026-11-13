@@ -1,0 +1,120 @@
+{
+  "port": 19180,
+  "engine": "C:/Users/jup03/llama-local/llama-rocm10/llama-server.exe",
+  "models": [
+    {
+      "model": "DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-Q4_K_M",
+      "streaming": true,
+      "http_status": 200,
+      "done": true,
+      "generated_text": "Hello!",
+      "pings": 5,
+      "first_byte_s": 4.004819199995836,
+      "elapsed_s": 22.10956320000696,
+      "passed": true,
+      "unload_status": 200
+    },
+    {
+      "model": "Huihui-gpt-oss-20b-abliterated-v2-MXFP4_MOE",
+      "streaming": true,
+      "http_status": 200,
+      "done": true,
+      "generated_text": "The user says: \"Reply with one short greeting in English.\" So we need to reply with a short greeting in English. Just a short greeting. For example: \"Hello!\" or \"Hi there!\" or \"Hey!\" or \"Greetings!\" The instruction: \"Reply with one short greeting in English.\" So we should reply with a single short greeting. Let\u2019s choose \"Hello!\"",
+      "pings": 6,
+      "first_byte_s": 4.0075963999843225,
+      "elapsed_s": 34.84182569998666,
+      "passed": true,
+      "tool_calls": [
+        {
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\":\"C:/test/main.py\"}"
+          },
+          "id": "9sKOvkSlzNpuw8wqLg4xHA9492Bn1jJJ"
+        }
+      ],
+      "tool_call_json_valid": true,
+      "unload_status": 200
+    },
+    {
+      "model": "Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q4_K_M",
+      "streaming": true,
+      "http_status": 200,
+      "done": true,
+      "generated_text": "Hello!",
+      "pings": 6,
+      "first_byte_s": 4.008475399983581,
+      "elapsed_s": 24.96001169999363,
+      "passed": true,
+      "unload_status": 200
+    },
+    {
+      "model": "gemma4-12b-ud-q3xl",
+      "streaming": true,
+      "http_status": 200,
+      "done": true,
+      "generated_text": "Hello!",
+      "pings": 6,
+      "first_byte_s": 4.005220699997153,
+      "elapsed_s": 25.190869399986695,
+      "passed": true,
+      "unload_status": 200
+    },
+    {
+      "model": "ornith-15-9b-q4km",
+      "streaming": true,
+      "http_status": 200,
+      "done": true,
+      "generated_text": "Hello!",
+      "pings": 5,
+      "first_byte_s": 4.004801900009625,
+      "elapsed_s": 23.858526500000153,
+      "passed": true,
+      "tool_calls": [
+        {
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\":\"C:/test/main.py\"}"
+          },
+          "id": "LR0iVfoOAIdm1aVoOzb5qp1o9XkQw3Hh"
+        }
+      ],
+      "tool_call_json_valid": true,
+      "unload_status": 200
+    },
+    {
+      "model": "ornith-15-9b-unc-q4km",
+      "streaming": true,
+      "http_status": 200,
+      "done": true,
+      "generated_text": "Hello!",
+      "pings": 6,
+      "first_byte_s": 4.013214199978393,
+      "elapsed_s": 24.689769199991133,
+      "passed": true,
+      "unload_status": 200
+    },
+    {
+      "model": "qwen35-9b-mtp-q4km",
+      "streaming": true,
+      "http_status": 200,
+      "done": true,
+      "generated_text": "Hello!",
+      "pings": 6,
+      "first_byte_s": 4.01059299998451,
+      "elapsed_s": 24.924145500001032,
+      "passed": true,
+      "unload_status": 200
+    }
+  ],
+  "router_pid": 89032,
+  "isolated_health_after": {
+    "status": "ok"
+  },
+  "own_router_stopped": true,
+  "original_router_health_after": {
+    "status": "ok"
+  }
+}

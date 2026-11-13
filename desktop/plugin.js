@@ -15,6 +15,7 @@
  * element. Backend: /api/plugins/llamacpp-tuned/.
  */
 import { cn, STATUSBAR_AREAS, queryClient, useQuery, useValue, host } from '@hermes/plugin-sdk'
+import { useEffect } from 'react'
 import { jsx } from 'react/jsx-runtime'
 
 const STATUS_KEY = ['llamacpp-tuned-status']
@@ -118,6 +119,18 @@ function WgChip({ api }) {
 }
 
 function UnloadChip({ api }) {
+  useEffect(() => {
+    const close = () => {
+      document.getElementById('llamacpp-tuned-unload-menu')?.remove()
+      document.getElementById('llamacpp-tuned-unload-backdrop')?.remove()
+    }
+    const escape = (event) => { if (event.key === 'Escape') close() }
+    document.addEventListener('keydown', escape)
+    return () => {
+      document.removeEventListener('keydown', escape)
+      close()
+    }
+  }, [])
   // Same query key as the router chip, so one poll feeds both.
   //
   // WHY THE POPUP IS BUILT BY HAND: in the packaged Desktop the statusbar host

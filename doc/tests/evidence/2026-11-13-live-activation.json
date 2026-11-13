@@ -1,0 +1,63 @@
+{
+  "public_health": {
+    "status": "ok"
+  },
+  "internal_health": {
+    "status": "ok"
+  },
+  "public_server": "uvicorn",
+  "model_count": 7,
+  "tested_model": "ornith-15-9b-q4km",
+  "tuned_arguments": [
+    "C:\\Users\\jup03\\llama-local\\llama-rocm10\\llama-server.exe",
+    "--host",
+    "127.0.0.1",
+    "--log-colors",
+    "off",
+    "--metrics",
+    "--port",
+    "0",
+    "--spec-ngram-mod-n-match",
+    "24",
+    "--spec-ngram-mod-n-max",
+    "16",
+    "--spec-ngram-mod-n-min",
+    "2",
+    "--spec-type",
+    "ngram-mod",
+    "--alias",
+    "ornith-15-9b-q4km",
+    "--ctx-size",
+    "65536",
+    "--cache-type-k",
+    "q8_0",
+    "--cache-type-v",
+    "q8_0",
+    "--flash-attn",
+    "on",
+    "--model",
+    "C:/Users/jup03/AppData/Local/hermes/models/ornith-15-9b-q4km.gguf",
+    "--ubatch-size",
+    "512"
+  ],
+  "completion_done": true,
+  "completion_text": "Hello!",
+  "keepalives": 5,
+  "elapsed_s": 21.574383099999977,
+  "final_public_health": {
+    "status": "ok"
+  },
+  "final_internal_health": {
+    "status": "ok"
+  },
+  "listeners": [
+    {
+      "port": 8080,
+      "pid": 88632
+    },
+    {
+      "port": 8081,
+      "pid": 88112
+    }
+  ]
+}
