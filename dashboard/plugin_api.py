@@ -431,10 +431,13 @@ def _progress_state() -> dict:
 def _idle_sweeper():
     """Unload every loaded model after idle_unload_s without token activity.
 
-    idle_unload_s <= 0 (the UNLOAD chip's "never") disables unloading entirely."""
-    cfg = _settings()
+    idle_unload_s <= 0 (the UNLOAD chip's "never") disables unloading entirely.
+    cfg is re-read EVERY cycle — chip changes must apply to the running sweeper
+    without a gateway restart (they did not when cfg was captured at thread
+    start, which kept the boot-time threshold until the next restart)."""
     last_sig, last_change = None, time.time()
     while True:
+        cfg = _settings()
         time.sleep(cfg["poll_s"])
         if not _health():
             last_sig, last_change = None, time.time()
