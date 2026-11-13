@@ -173,6 +173,7 @@ function UnloadChip({ api }) {
       row.onclick = (ev) => {
         ev.stopPropagation()
         menu.remove()
+        document.getElementById('llamacpp-tuned-unload-backdrop')?.remove()
         if (s.seconds === seconds) return
         api('/idle-unload', { method: 'POST', body: { seconds: s.seconds } })
           .catch(() => {})
