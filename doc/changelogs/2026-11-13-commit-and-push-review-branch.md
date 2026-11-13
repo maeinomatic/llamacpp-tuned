@@ -29,4 +29,4 @@ Per explicit user approval ("commit and push", then confirmation to use plain `g
 
 ## Approval / publication
 
-Approved commit/push of the review branch only. No PR creation, main merge, RTX deployment or other remote action was requested or performed.
+Approved commit/push of the review branch only. After that approval, the user requested the PR: **[PR #1](https://github.com/maeinomatic/llamacpp-tuned/pull/1)** (`local/proxy-rocm-compat` → `main`) was created via `gh pr create` and read back OPEN/MERGEABLE with both commits. It was left **open, not merged** — the RTX 3070/CUDA acceptance remains the recorded gate for merging. No PR merge, RTX deployment or other remote action was performed.
