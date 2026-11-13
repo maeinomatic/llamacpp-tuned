@@ -273,6 +273,29 @@ def _generate_presets() -> int:
             keys["spec-ngram-mod-n-max"] = "10"
             keys["spec-ngram-mod-n-min"] = "2"
             keys["load-mode"] = "none"
+            # MoE expert cache + CPU share (llama.cpp PR #30966, needs b12255+).
+            # Measured on the 8 GB RTX 3070 (share 0.95, load-mode none), decode
+            # at each model's preset ctx — all four staged MoE models gain:
+            #   35B-A3B Q4_K_M   34.7 -> 44.0 tok/s (+26%, 2560 MiB, 256K ctx)
+            #   Coder-30B Q5_K_S 23.9 -> 40.5 tok/s (+69%, 2560 MiB, 87K ctx)
+            #   Sakura-45B Q4_K_M 34.2 -> 38.4 tok/s (+12%, 2048 MiB, 256K ctx)
+            #   80B-A3B IQ4_XS   30.7 -> 35.2 tok/s (+15%, 1536 MiB, 256K ctx)
+            # Cache sizes are per-model VRAM ceilings — 2560+ MiB thrashes at a
+            # 256K window (llama.cpp projects 7209 vs 7113 MiB free). CUDA only:
+            # the numbers come from discrete-NVIDIA bandwidth ratios (PCIe
+            # 14.4 GiB/s vs DDR5 52.8 GiB/s). ROCm/Vulkan machines — e.g. the
+            # Legion Go 2's AMD iGPU, where experts share UMA and there is no
+            # PCIe hop for the share to beat — keep the old behavior unchanged.
+            # Unmeasured MoE models default to a conservative 2048 MiB.
+            _backend = (s.get("backend") or ("cuda" if _nvidia() else "cpu")).lower()
+            if _backend == "cuda" and int(profile.n_ctx_train or 0) >= 32768:
+                _cache = 2048
+                if "35B-A3B" in gguf.stem or "Coder-30B" in gguf.stem:
+                    _cache = 2560
+                elif "80B-A3B" in gguf.stem:
+                    _cache = 1536
+                keys["moe-cache-mib"] = str(_cache)
+                keys["moe-cache-cpu-share"] = "0.95"
         else:
             w = profile.weights_bytes
             if w + reserve <= vram:
