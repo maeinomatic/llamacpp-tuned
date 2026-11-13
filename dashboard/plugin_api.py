@@ -582,25 +582,98 @@ async def _proxy_any(request: Request):
 @_proxy_app.post("/v1/chat/completions")
 @_proxy_app.post("/completion")
 async def _proxy_chat(request: Request):
-    """Serialize per model: the desktop's reconnect retries wait on the lock
-    instead of hammering llama.cpp's slot; a client that has already gone away
-    is dropped without ever reaching the router."""
+    """Serialize per model AND keep the client's first-chunk watchdog fed.
+
+    Two failure modes this prevents (both observed 2026-11-13):
+    1. Hermes' reconnect loop retries a 500 "model limit reached" without
+       backoff while a model loads — 12k+ rejected requests in minutes.
+    2. A cold load + large-prompt prefill takes longer than Hermes' 60 s
+       first-chunk watchdog; the reconnect ABORTS the in-flight load, and
+       every retry restarts the load it just killed — an infinite loop.
+
+    So: the model is loaded via /models/load (which proceeds independently of
+    any client), the handler polls until it is resident, and a streaming
+    client receives SSE comment keep-alives (`: ping`) every 4 s during the
+    wait — any bytes on the stream satisfy the watchdog, so nothing aborts
+    the load. Real tokens take over once generation starts. Disconnected
+    clients are dropped without touching the load."""
     import asyncio
     import httpx
-    from fastapi.responses import StreamingResponse
+    from fastapi.responses import StreamingResponse, Response
     body = await request.body()
     model = ""
+    stream_wanted = "text/event-stream" in (request.headers.get("accept") or "")
     try:
-        model = str(json.loads(body or b"{}").get("model") or "")
+        parsed = json.loads(body or b"{}")
+        model = str(parsed.get("model") or "")
+        stream_wanted = stream_wanted or bool(parsed.get("stream"))
     except Exception:
         pass
-    lock = _chat_locks.setdefault(model or "_default", asyncio.Lock())
     if await request.is_disconnected():
-        return StreamingResponse(iter(()), status_code=204)
-    async with lock:
-        if await request.is_disconnected():
-            return StreamingResponse(iter(()), status_code=204)
-        return await _passthrough(request, body, True)
+        return Response(status_code=204)
+
+    async def _router_json(path, payload=None):
+        async with httpx.AsyncClient(timeout=httpx.Timeout(600, connect=5)) as c:
+            r = await c.post(_upstream() + path, json=payload) if payload is not None \
+                else await c.get(_upstream() + path)
+            return r.json()
+
+    async def _model_status(name):
+        try:
+            data = await _router_json("/models")
+            for m in data.get("data", []):
+                if m.get("id") == name:
+                    return (m.get("status") or {}).get("value", "")
+        except Exception:
+            pass
+        return ""
+
+    # not resident? start the load detached from this client's lifetime
+    if model and await _model_status(model) != "loaded":
+        asyncio.get_running_loop().create_task(_router_json("/models/load", {"model": model}))
+        deadline = asyncio.get_running_loop().time() + 900
+        while await _model_status(model) != "loaded":
+            if asyncio.get_running_loop().time() > deadline:
+                raise HTTPException(504, f"model {model} did not finish loading")
+            if await request.is_disconnected():
+                return Response(status_code=204)  # load keeps going for the next request
+            await asyncio.sleep(2)
+
+    lock = _chat_locks.setdefault(model or "_default", asyncio.Lock())
+
+    async def _generate():
+        # wait for the per-model slot, feeding keep-alives while locked out
+        while True:
+            try:
+                await asyncio.wait_for(lock.acquire(), timeout=4)
+                break
+            except asyncio.TimeoutError:
+                if await request.is_disconnected():
+                    return
+                if stream_wanted:
+                    yield b": ping\n\n"
+        try:
+            if await request.is_disconnected():
+                return
+            async with httpx.AsyncClient(timeout=httpx.Timeout(None, connect=5)) as client:
+                req = client.build_request("POST", _upstream() + request.url.path,
+                                           content=body,
+                                           headers={"content-type": "application/json"})
+                resp = await client.send(req, stream=True)
+                if not stream_wanted:
+                    content = b""
+                    async for chunk in resp.aiter_raw():
+                        content += chunk
+                    yield content
+                    return
+                async for chunk in resp.aiter_raw():
+                    yield chunk
+        finally:
+            lock.release()
+
+    headers = {"content-type": "text/event-stream"} if stream_wanted else \
+        {"content-type": "application/json"}
+    return StreamingResponse(_generate(), headers=headers)
 
 
 def _proxy_start():
