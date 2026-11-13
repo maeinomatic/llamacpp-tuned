@@ -124,6 +124,14 @@ function UnloadChip({ api }) {
   const label = seconds <= 0 ? 'UNLOAD never'
     : seconds >= 3600 ? `UNLOAD ${seconds / 3600}h`
     : `UNLOAD ${Math.round(seconds / 60)}m`
+  // Option styling: native selects render the popup with the OPTION's own
+  // background/color in Chromium, so leave the select transparent (it blends
+  // with the status bar in every theme) and paint the options with theme vars
+  // — otherwise items are invisible on dark themes.
+  const optStyle = {
+    background: 'var(--ui-bg, var(--ui-card, var(--background, #1e1e1e)))',
+    color: 'var(--ui-foreground, var(--ui-text-primary, var(--foreground, #ddd)))',
+  }
   return jsx('select', {
     value: String(seconds),
     onChange: (e) => {
@@ -137,24 +145,21 @@ function UnloadChip({ api }) {
           refetch()
         })
     },
-    // Native select so the choice is a real dropdown; sits in its own registered
-    // chip element (nested handlers inside the router chip don't fire in the
-    // packaged Desktop — see the header note).
     style: {
-      appearance: 'auto', cursor: 'pointer', margin: '0 2px',
+      cursor: 'pointer', margin: '0 2px', border: 'none', padding: '0 2px',
       fontSize: 10, whiteSpace: 'nowrap', userSelect: 'none',
+      background: 'transparent',
       color: seconds <= 0 ? 'var(--ui-warn, var(--ui-text-secondary))'
-        : 'var(--ui-text-quaternary)',
-      background: 'transparent', border: 'none', padding: '0 2px',
+        : 'var(--ui-text-secondary, var(--foreground))',
     },
     title: 'Idle unload for loaded models. After this many minutes without token activity the router frees VRAM; the next request reloads the model automatically. "never" keeps models resident until the gateway dies (VRAM stays occupied). Applies to the running router within ~1 minute.',
     children: [
-      jsx('option', { value: '900' }, 'UNLOAD 15m (default)'),
-      jsx('option', { value: '1800' }, 'UNLOAD 30m'),
-      jsx('option', { value: '3600' }, 'UNLOAD 1h'),
-      jsx('option', { value: '7200' }, 'UNLOAD 2h'),
-      jsx('option', { value: '10800' }, 'UNLOAD 3h'),
-      jsx('option', { value: '0' }, 'UNLOAD never'),
+      jsx('option', { value: '900', style: optStyle }, 'UNLOAD 15m (default)'),
+      jsx('option', { value: '1800', style: optStyle }, 'UNLOAD 30m'),
+      jsx('option', { value: '3600', style: optStyle }, 'UNLOAD 1h'),
+      jsx('option', { value: '7200', style: optStyle }, 'UNLOAD 2h'),
+      jsx('option', { value: '10800', style: optStyle }, 'UNLOAD 3h'),
+      jsx('option', { value: '0', style: optStyle }, 'UNLOAD never'),
     ],
   })
 }
@@ -171,11 +176,11 @@ export function register(ctx) {
     render: () => jsx(Chip, { api }),
   })
   ctx.register({
-    id: 'llamacpp-tuned-wg', area: STATUSBAR_AREAS.right, order: 51,
+    id: 'llamacpp-tuned-wg', area: STATUSBAR_AREAS.right, order: 50.1,
     render: () => jsx(WgChip, { api }),
   })
   ctx.register({
-    id: 'llamacpp-tuned-unload', area: STATUSBAR_AREAS.right, order: 52,
+    id: 'llamacpp-tuned-unload', area: STATUSBAR_AREAS.right, order: 50.2,
     render: () => jsx(UnloadChip, { api }),
   })
 }
