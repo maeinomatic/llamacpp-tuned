@@ -1,0 +1,162 @@
+{
+  "comparison_base": "7ff358270a4dbf359de4502c46ef20f94976b599",
+  "unchanged_function_ast": {
+    "_generate_presets": true,
+    "_resolve_engine": true,
+    "_settings": true,
+    "_vram_bytes": true,
+    "_engine_asset": true,
+    "_nvidia": true
+  },
+  "fixture_cases": [
+    {
+      "configured_backend": "cuda",
+      "nvidia_detected_fixture": true,
+      "incoming_installed_presets_identical": true,
+      "models": {
+        "Qwen3.5-35B-A3B-Q4_K_M": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": "2560",
+          "moe-cache-cpu-share": "0.95"
+        },
+        "Qwen3-Coder-30B-Q5_K_S": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": "2560",
+          "moe-cache-cpu-share": "0.95"
+        },
+        "Sakura-45B-Q4_K_M": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": "2048",
+          "moe-cache-cpu-share": "0.95"
+        },
+        "Qwen3-Next-80B-A3B-IQ4_XS": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": "1536",
+          "moe-cache-cpu-share": "0.95"
+        },
+        "Unmeasured-MoE": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": "2048",
+          "moe-cache-cpu-share": "0.95"
+        },
+        "Dense-Qwen": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        }
+      }
+    },
+    {
+      "configured_backend": "auto",
+      "nvidia_detected_fixture": true,
+      "incoming_installed_presets_identical": true,
+      "models": {
+        "Qwen3.5-35B-A3B-Q4_K_M": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": "2560",
+          "moe-cache-cpu-share": "0.95"
+        },
+        "Qwen3-Coder-30B-Q5_K_S": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": "2560",
+          "moe-cache-cpu-share": "0.95"
+        },
+        "Sakura-45B-Q4_K_M": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": "2048",
+          "moe-cache-cpu-share": "0.95"
+        },
+        "Qwen3-Next-80B-A3B-IQ4_XS": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": "1536",
+          "moe-cache-cpu-share": "0.95"
+        },
+        "Unmeasured-MoE": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": "2048",
+          "moe-cache-cpu-share": "0.95"
+        },
+        "Dense-Qwen": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        }
+      }
+    },
+    {
+      "configured_backend": "rocm",
+      "nvidia_detected_fixture": false,
+      "incoming_installed_presets_identical": true,
+      "models": {
+        "Qwen3.5-35B-A3B-Q4_K_M": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        },
+        "Qwen3-Coder-30B-Q5_K_S": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        },
+        "Sakura-45B-Q4_K_M": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        },
+        "Qwen3-Next-80B-A3B-IQ4_XS": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        },
+        "Unmeasured-MoE": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        },
+        "Dense-Qwen": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        }
+      }
+    },
+    {
+      "configured_backend": "vulkan",
+      "nvidia_detected_fixture": false,
+      "incoming_installed_presets_identical": true,
+      "models": {
+        "Qwen3.5-35B-A3B-Q4_K_M": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        },
+        "Qwen3-Coder-30B-Q5_K_S": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        },
+        "Sakura-45B-Q4_K_M": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        },
+        "Qwen3-Next-80B-A3B-IQ4_XS": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        },
+        "Unmeasured-MoE": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        },
+        "Dense-Qwen": {
+          "spec-type": "ngram-mod",
+          "moe-cache-mib": null,
+          "moe-cache-cpu-share": null
+        }
+      }
+    }
+  ],
+  "live_cuda_inference_tested": false
+}

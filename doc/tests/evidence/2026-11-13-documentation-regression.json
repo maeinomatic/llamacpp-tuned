@@ -1,0 +1,45 @@
+{
+  "captured_at_utc": "2026-11-13T21:16:45.649759+00:00",
+  "scope": "fixture regression and syntax/diff checks; no GPU inference or throughput benchmark",
+  "checks": [
+    {
+      "command": [
+        "C:\\Users\\jup03\\AppData\\Local\\hermes\\installs\\72cf12c769456b88\\environments\\3e414d1ffe8a4eb5b1dd2945f2ebafad\\venv\\Scripts\\python.exe",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "exit_code": 0,
+      "output": "2026-11-13-unittest.log"
+    },
+    {
+      "command": [
+        "node",
+        "tests/test_desktop.cjs"
+      ],
+      "exit_code": 0,
+      "output": "2026-11-13-check-1.log"
+    },
+    {
+      "command": [
+        "node",
+        "--check",
+        "desktop/plugin.js"
+      ],
+      "exit_code": 0,
+      "output": "2026-11-13-check-2.log"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "output": "2026-11-13-check-3.log"
+    }
+  ]
+}

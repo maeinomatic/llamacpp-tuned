@@ -1,0 +1,18 @@
+{
+  "checked_at_utc": "2026-11-13T21:32:43.125063+00:00",
+  "base_head": "7ff358270a4dbf359de4502c46ef20f94976b599",
+  "branch": "local/proxy-rocm-compat",
+  "candidate_files_scanned": 60,
+  "common_credential_signature_findings": [],
+  "ignored_machine_settings_excluded": true,
+  "model_binary_payloads_found": false,
+  "documentation_links_valid": true,
+  "archive_hashes_valid": true,
+  "production_files_match_reviewed_activation": true,
+  "machine_metadata_present": true,
+  "machine_metadata_note": "Documents/evidence contain intentional local paths, usernames and hardware metadata; publication makes those visible. No blanket privacy guarantee from pattern scanning.",
+  "remote_cuda_inference_tested": false,
+  "recommended_target": "review branch, after explicit commit/push approval; CUDA hardware smoke before main merge",
+  "committed": false,
+  "pushed": false
+}

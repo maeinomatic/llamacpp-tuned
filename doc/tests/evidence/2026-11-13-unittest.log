@@ -1,0 +1,34 @@
+test_different_models_share_one_residency_slot (test_proxy.ConcurrencyTests.test_different_models_share_one_residency_slot) ... ok
+test_explicit_preload_does_not_evict_active_chat (test_proxy.ConcurrencyTests.test_explicit_preload_does_not_evict_active_chat) ... ok
+test_enable_keeps_public_proxy_running (test_proxy.LifecycleTests.test_enable_keeps_public_proxy_running) ... ok
+test_failed_proxy_bind_does_not_orphan_router (test_proxy.LifecycleTests.test_failed_proxy_bind_does_not_orphan_router) ... ok
+test_stop_joins_listener_before_reenable (test_proxy.LifecycleTests.test_stop_joins_listener_before_reenable) ... ok
+test_chat_dispatches_to_specific_handler (test_proxy.RoutingTests.test_chat_dispatches_to_specific_handler) ... ok
+test_chat_tokens_are_not_buffered (test_proxy.StreamingTests.test_chat_tokens_are_not_buffered) ... ok
+test_cold_load_sends_heartbeat_before_model_is_ready (test_proxy.StreamingTests.test_cold_load_sends_heartbeat_before_model_is_ready) ... ok
+test_model_events_are_forwarded_before_upstream_finishes (test_proxy.StreamingTests.test_model_events_are_forwarded_before_upstream_finishes) ... ok
+test_prefill_sends_heartbeats_before_first_token (test_proxy.StreamingTests.test_prefill_sends_heartbeats_before_first_token) ... ok
+test_cold_requests_deduplicate_load (test_proxy_edges.ConcurrencyEdges.test_cold_requests_deduplicate_load) ... ok
+test_disconnected_cold_stream_load_is_reused (test_proxy_edges.ConcurrencyEdges.test_disconnected_cold_stream_load_is_reused) ... ok
+test_disconnected_queued_stream_does_not_generate (test_proxy_edges.ConcurrencyEdges.test_disconnected_queued_stream_does_not_generate) ... ok
+test_unload_waits_for_generation (test_proxy_edges.ConcurrencyEdges.test_unload_waits_for_generation) ... ok
+test_authorization_forwarded (test_proxy_edges.ErrorTests.test_authorization_forwarded) ... ok
+test_failed_load_does_not_attempt_generation (test_proxy_edges.ErrorTests.test_failed_load_does_not_attempt_generation) ... ok
+test_load_timeout_is_bounded (test_proxy_edges.ErrorTests.test_load_timeout_is_bounded) ... ok
+test_malformed_requests_fail_before_upstream (test_proxy_edges.ErrorTests.test_malformed_requests_fail_before_upstream) ... ok
+test_unknown_model_fails_without_loading (test_proxy_edges.ErrorTests.test_unknown_model_fails_without_loading) ... ok
+test_upstream_error_is_explicit_in_stream (test_proxy_edges.ErrorTests.test_upstream_error_is_explicit_in_stream) ... ok
+test_upstream_error_preserved_for_nonstreaming (test_proxy_edges.ErrorTests.test_upstream_error_preserved_for_nonstreaming) ... ok
+test_occupied_port_fails_synchronously (test_proxy_edges.LifecycleEdges.test_occupied_port_fails_synchronously) ... ok
+test_empty_model_control_request_rejected (test_review_regressions.ReviewRegressions.test_empty_model_control_request_rejected) ... ok
+test_failed_health_rolls_back_partial_enable (test_review_regressions.ReviewRegressions.test_failed_health_rolls_back_partial_enable) ... ok
+test_heartbeat_never_splits_json_event (test_review_regressions.ReviewRegressions.test_heartbeat_never_splits_json_event) ... ok
+test_model_switch_explicitly_frees_previous_resident (test_review_regressions.ReviewRegressions.test_model_switch_explicitly_frees_previous_resident) ... ok
+test_model_switch_waits_for_async_unload (test_review_regressions.ReviewRegressions.test_model_switch_waits_for_async_unload) ... ok
+test_nonstream_disconnect_during_cold_load_does_not_generate (test_review_regressions.ReviewRegressions.test_nonstream_disconnect_during_cold_load_does_not_generate) ... ok
+test_stream_error_preserves_engine_diagnostic (test_review_regressions.ReviewRegressions.test_stream_error_preserves_engine_diagnostic) ... ok
+
+----------------------------------------------------------------------
+Ran 29 tests in 28.328s
+
+OK

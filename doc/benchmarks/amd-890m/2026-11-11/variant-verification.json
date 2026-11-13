@@ -1,0 +1,158 @@
+[
+ {
+  "backend": "vulkan",
+  "model": "qwen35-9b-stock",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 13.17,
+   "pp_tps": 257.4
+  },
+  "chat": {
+   "gen_tps": 13.42,
+   "pp_tps": 34.4
+  }
+ },
+ {
+  "backend": "vulkan",
+  "model": "qwen35-9b-stock",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 45.69,
+   "pp_tps": 266.8
+  },
+  "chat": {
+   "gen_tps": 13.56,
+   "pp_tps": 37.7
+  }
+ },
+ {
+  "backend": "vulkan",
+  "model": "qwen35-9b-heretic",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 13.67,
+   "pp_tps": 270.0
+  },
+  "chat": {
+   "gen_tps": 14.19,
+   "pp_tps": 36.8
+  }
+ },
+ {
+  "backend": "vulkan",
+  "model": "qwen35-9b-heretic",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 42.96,
+   "pp_tps": 237.4
+  },
+  "chat": {
+   "gen_tps": 14.19,
+   "pp_tps": 30.2
+  }
+ },
+ {
+  "backend": "vulkan",
+  "model": "qwen35-9b-hauhau",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 14.25,
+   "pp_tps": 244.6
+  },
+  "chat": {
+   "gen_tps": 14.49,
+   "pp_tps": 35.1
+  }
+ },
+ {
+  "backend": "vulkan",
+  "model": "qwen35-9b-hauhau",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 41.81,
+   "pp_tps": 238.7
+  },
+  "chat": {
+   "gen_tps": 14.38,
+   "pp_tps": 32.7
+  }
+ },
+ {
+  "backend": "rocm",
+  "model": "qwen35-9b-stock",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 9.56,
+   "pp_tps": 240.8
+  },
+  "chat": {
+   "gen_tps": 8.05,
+   "pp_tps": 55.5
+  }
+ },
+ {
+  "backend": "rocm",
+  "model": "qwen35-9b-stock",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 66.35,
+   "pp_tps": 241.2
+  },
+  "chat": {
+   "gen_tps": 7.89,
+   "pp_tps": 50.3
+  }
+ },
+ {
+  "backend": "rocm",
+  "model": "qwen35-9b-heretic",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 8.09,
+   "pp_tps": 202.5
+  },
+  "chat": {
+   "gen_tps": 8.13,
+   "pp_tps": 48.6
+  }
+ },
+ {
+  "backend": "rocm",
+  "model": "qwen35-9b-heretic",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 67.99,
+   "pp_tps": 223.4
+  },
+  "chat": {
+   "gen_tps": 8.68,
+   "pp_tps": 68.3
+  }
+ },
+ {
+  "backend": "rocm",
+  "model": "qwen35-9b-hauhau",
+  "spec": "none",
+  "repro": {
+   "gen_tps": 8.09,
+   "pp_tps": 267.1
+  },
+  "chat": {
+   "gen_tps": 8.52,
+   "pp_tps": 38.1
+  }
+ },
+ {
+  "backend": "rocm",
+  "model": "qwen35-9b-hauhau",
+  "spec": "ngram",
+  "repro": {
+   "gen_tps": 68.84,
+   "pp_tps": 245.0
+  },
+  "chat": {
+   "gen_tps": 8.37,
+   "pp_tps": 49.8
+  }
+ }
+]
