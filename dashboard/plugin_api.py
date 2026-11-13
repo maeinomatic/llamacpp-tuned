@@ -27,7 +27,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from pydantic import BaseModel, StrictBool
 
 router = APIRouter()
@@ -515,6 +515,133 @@ def _attach_watchdog(proc):
                        | getattr(subprocess, "CREATE_NO_WINDOW", 0)) if IS_WIN else 0)
 
 
+def _router_port() -> int:
+    """The REAL router listens here; the 8080-facing port is the plugin proxy
+    (see _proxy). Hermes talks to the proxy, which serializes chat requests so
+    a slow cold load cannot turn Hermes' reconnect loop into a 500-storm."""
+    return int(_settings()["port"]) + 1
+
+
+# -- 8080 proxy -------------------------------------------------------------
+# The desktop auto-detects a llama-server on settings.port (8080) and streams
+# chat through it. When a model is cold-loading, llama.cpp answers a second
+# request with 500 "model limit reached" while the first holds the slot — and
+# Hermes' reconnect loop retries without backoff, which hammers the router
+# (12k+ rejected requests observed) and starves the original stream. The proxy
+# sits on 8080, passes everything through to the router on _router_port(), and
+# for chat endpoints serializes per model: retries WAIT on a lock instead of
+# racing the router, and a disconnected client's queued turn is dropped rather
+# than occupying the slot. Streaming (SSE) is passed through raw.
+
+_proxy_app = FastAPI()
+_proxy_server = None
+_proxy_thread = None
+_chat_locks: dict = {}
+
+
+def _upstream() -> str:
+    return f"http://127.0.0.1:{_router_port()}"
+
+
+async def _passthrough(request: Request, body: bytes | None, stream: bool):
+    import httpx
+    from fastapi.responses import StreamingResponse
+    headers = {k: v for k, v in request.headers.items()
+               if k.lower() in ("content-type", "accept", "authorization")}
+    url = _upstream() + request.url.path
+    if request.url.query:
+        url += "?" + str(request.url.query)
+    timeout = httpx.Timeout(None if stream else 30, connect=5)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            if stream:
+                req = client.build_request(request.method, url, content=body, headers=headers)
+                resp = await client.send(req, stream=True)
+                async def gen():
+                    try:
+                        async for chunk in resp.aiter_raw():
+                            yield chunk
+                    finally:
+                        await resp.aclose()
+                return StreamingResponse(gen(), status_code=resp.status_code,
+                                         media_type=resp.headers.get("content-type"))
+            resp = await client.request(request.method, url, content=body, headers=headers)
+            from fastapi.responses import Response
+            return Response(content=resp.content, status_code=resp.status_code,
+                            media_type=resp.headers.get("content-type"))
+    except Exception as exc:
+        raise HTTPException(502, f"router unreachable: {exc}")
+
+
+@_proxy_app.api_route("/{path:path}", methods=["GET", "POST", "DELETE"])
+async def _proxy_any(request: Request):
+    body = await request.body()
+    return await _passthrough(request, body or None, False)
+
+
+@_proxy_app.post("/v1/chat/completions")
+@_proxy_app.post("/completion")
+async def _proxy_chat(request: Request):
+    """Serialize per model: the desktop's reconnect retries wait on the lock
+    instead of hammering llama.cpp's slot; a client that has already gone away
+    is dropped without ever reaching the router."""
+    import asyncio
+    import httpx
+    from fastapi.responses import StreamingResponse
+    body = await request.body()
+    model = ""
+    try:
+        model = str(json.loads(body or b"{}").get("model") or "")
+    except Exception:
+        pass
+    lock = _chat_locks.setdefault(model or "_default", asyncio.Lock())
+    if await request.is_disconnected():
+        return StreamingResponse(iter(()), status_code=204)
+    async with lock:
+        if await request.is_disconnected():
+            return StreamingResponse(iter(()), status_code=204)
+        return await _passthrough(request, body, True)
+
+
+def _proxy_start():
+    """Start the 8080 proxy in a daemon thread; retries for up to ~60 s if the
+    port is still held by a dying previous router."""
+    global _proxy_server, _proxy_thread
+    import threading
+    import time as _time
+    import uvicorn
+    if _proxy_server is not None and not _proxy_server.should_exit:
+        return
+    port = int(_settings()["port"])
+
+    class _Server(uvicorn.Server):
+        def install_signal_handlers(self):
+            pass  # the gateway owns signal handling
+
+    config = uvicorn.Config(_proxy_app, host="127.0.0.1", port=port,
+                            log_level="warning", lifespan="off")
+    _proxy_server = _Server(config)
+
+    def _run():
+        for _ in range(60):
+            try:
+                if _proxy_server is not None:
+                    _proxy_server.run()
+                return
+            except OSError:
+                _time.sleep(1)  # port still held by the previous router
+
+    _proxy_thread = threading.Thread(target=_run, daemon=True, name="llamacpp-tuned-proxy")
+    _proxy_thread.start()
+
+
+def _proxy_stop():
+    global _proxy_server
+    if _proxy_server is not None:
+        _proxy_server.should_exit = True
+        _proxy_server = None
+
+
 def _spawn():
     global _engine_in_use
     ENGINE_DIR.mkdir(parents=True, exist_ok=True)
@@ -524,11 +651,12 @@ def _spawn():
     _engine_in_use = engine
     proc = subprocess.Popen(
         [engine, "--models-preset", str(PRESET), "--models-max", "1",
-         "--port", str(_settings()["port"]), "--metrics", "--host",
+         "--port", str(_router_port()), "--metrics", "--host",
          "127.0.0.1"],
         stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if IS_WIN else 0)
     _attach_watchdog(proc)
+    _proxy_start()
     return proc
 
 
@@ -657,6 +785,9 @@ async def set_mode(body: ModeRequest):
                 await asyncio.to_thread(_proc.terminate)
                 await asyncio.to_thread(_proc.wait, 30)
             _proc = None
+        # chip OFF: free port 8080 too — Hermes' probe must see nothing there,
+        # exactly as when no router ever ran
+        await asyncio.to_thread(_proxy_stop)
         state = _read_state()
         if state["enabled"] != body.enabled:
             raise HTTPException(502, "Read-back did not confirm the requested mode.")
