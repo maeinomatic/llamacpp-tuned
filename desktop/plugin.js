@@ -140,7 +140,9 @@ function UnloadChip({ api }) {
   const current = STEPS.find((s) => s.seconds === seconds) || STEPS[0]
 
   function openMenu(anchor) {
+    // remove any stale menu/backdrop from a previous open or plugin reload
     document.getElementById('llamacpp-tuned-unload-menu')?.remove()
+    document.getElementById('llamacpp-tuned-unload-backdrop')?.remove()
     const rect = anchor.getBoundingClientRect()
     const menu = document.createElement('div')
     menu.id = 'llamacpp-tuned-unload-menu'
@@ -190,28 +192,24 @@ function UnloadChip({ api }) {
   }
 
   return jsx('div', {
-    ref: (el) => {
-      if (el && !el.dataset.menuWired) {
-        // capture-phase click so the menu opens before any host handler runs;
-        // the ref persists across re-renders, wire exactly once
-        el.dataset.menuWired = '1'
-        el.addEventListener('click', (e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          if (document.getElementById('llamacpp-tuned-unload-menu')) {
-            document.getElementById('llamacpp-tuned-unload-menu').remove()
-            document.getElementById('llamacpp-tuned-unload-backdrop')?.remove()
-            return
-          }
-          openMenu(el)
-        }, true)
+    // onClick prop (NOT a ref: the statusbar host strips refs and nested
+    // children alike — the select and the ref wiring were both dead). The WG
+    // chip proves onClick on the chip root fires in the packaged Desktop.
+    onClick: (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (document.getElementById('llamacpp-tuned-unload-menu')) {
+        document.getElementById('llamacpp-tuned-unload-menu').remove()
+        document.getElementById('llamacpp-tuned-unload-backdrop')?.remove()
+        return
       }
+      openMenu(e.currentTarget)
     },
     style: {
       display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 3,
       padding: '0 6px', fontSize: 10, whiteSpace: 'nowrap', userSelect: 'none',
       color: seconds <= 0 ? 'var(--ui-warn, var(--muted-foreground))'
-        : 'var(--ui-text-quaternary, var(--muted-foreground))',
+        : 'var(--ui-text-secondary, var(--foreground))',
     },
     title: `Idle unload: models stay in VRAM ${current.seconds === 0 ? 'indefinitely (until the gateway dies)' : current.label + ' without token activity, then free VRAM; the next request reloads automatically'}. Click for the options. Applies to the running router within ~1 minute.`,
     children: `UNLOAD ${current.label} ▾`,
