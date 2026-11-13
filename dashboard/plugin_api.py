@@ -429,12 +429,17 @@ def _progress_state() -> dict:
 
 
 def _idle_sweeper():
-    """Unload every loaded model after idle_unload_s without token activity."""
+    """Unload every loaded model after idle_unload_s without token activity.
+
+    idle_unload_s <= 0 (the UNLOAD chip's "never") disables unloading entirely."""
     cfg = _settings()
     last_sig, last_change = None, time.time()
     while True:
         time.sleep(cfg["poll_s"])
         if not _health():
+            last_sig, last_change = None, time.time()
+            continue
+        if int(cfg.get("idle_unload_s", 900)) <= 0:
             last_sig, last_change = None, time.time()
             continue
         loaded = _loaded_models()
@@ -562,6 +567,7 @@ def _read_state():
             "engine_ready": Path(engine).is_file(),
             "engine_progress": dict(_state),
             "local_guard_fix": _bypass_setting(),
+            "idle_unload_s": int(_settings().get("idle_unload_s", 900)),
             "busy": _operation.locked()}
 
 
@@ -678,4 +684,26 @@ async def set_file_guard(body: FileGuardRequest):
     state = _read_state()
     if state["local_guard_fix"] != bool(body.enabled):
         raise HTTPException(502, "Read-back did not confirm the write-guard setting.")
+    return state
+
+
+class IdleUnloadRequest(BaseModel):
+    seconds: int  # 0 = never unload; otherwise the idle threshold
+
+
+@router.post("/idle-unload")
+async def set_idle_unload(body: IdleUnloadRequest):
+    """Chip dropdown: idle-unload threshold for loaded models.
+
+    0 disables unloading (models stay resident until the gateway dies or they are
+    unloaded manually). Any positive value is the idle threshold in seconds; the
+    sweeper thread re-reads settings.json every poll_s (60 s), so a change takes
+    effect on the running router without a restart. Persisted like file-guard."""
+    seconds = int(body.seconds)
+    if seconds < 0:
+        raise HTTPException(400, "seconds must be >= 0 (0 = never unload)")
+    _write_settings({"idle_unload_s": seconds})
+    state = _read_state()
+    if state["idle_unload_s"] != seconds:
+        raise HTTPException(502, "Read-back did not confirm the idle-unload setting.")
     return state

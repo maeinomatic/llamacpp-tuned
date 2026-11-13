@@ -1,11 +1,14 @@
 /**
- * Tuned Local Llama.cpp — two statusbar chips.
+ * Tuned Local Llama.cpp — three statusbar chips.
  * "LLM …"  ON = tuned llama.cpp router (b12255) serving the staged Qwen3.5 models with
  *          n-gram lookup drafting / q4 KV / full-window MoE presets. OFF = managed
  *          Hermes runtime is used as usual.
  * "WG …"   Opt-in bypass of Hermes' read-before-write guard, scoped by the plugin's
  *          hooks to write_file/patch calls from sessions on the staged local models
  *          (Codex and every other provider keep the guard).
+ * "UNLOAD" Idle-unload dropdown: 15m (default) / 30m / 1h / 2h / 3h / never — how long
+ *          loaded models stay in VRAM without token activity before the router frees
+ *          them.
  * Registered as TWO items, each with a single click handler on its own root element:
  * a handler nested inside the router chip did not fire in the packaged Desktop (no
  * /file-guard request ever reached the backend), so the controls must not share an
@@ -114,6 +117,48 @@ function WgChip({ api }) {
   })
 }
 
+function UnloadChip({ api }) {
+  // Same query key as the router chip, so one poll feeds both.
+  const { data, refetch } = useStatus(api, 30_000)
+  const seconds = data?.idle_unload_s ?? 900
+  const label = seconds <= 0 ? 'UNLOAD never'
+    : seconds >= 3600 ? `UNLOAD ${seconds / 3600}h`
+    : `UNLOAD ${Math.round(seconds / 60)}m`
+  return jsx('select', {
+    value: String(seconds),
+    onChange: (e) => {
+      e.preventDefault()
+      const v = parseInt(e.target.value, 10)
+      if (v === seconds) return
+      api('/idle-unload', { method: 'POST', body: { seconds: v } })
+        .catch(() => {})
+        .finally(() => {
+          queryClient.invalidateQueries({ queryKey: STATUS_KEY })
+          refetch()
+        })
+    },
+    // Native select so the choice is a real dropdown; sits in its own registered
+    // chip element (nested handlers inside the router chip don't fire in the
+    // packaged Desktop — see the header note).
+    style: {
+      appearance: 'auto', cursor: 'pointer', margin: '0 2px',
+      fontSize: 10, whiteSpace: 'nowrap', userSelect: 'none',
+      color: seconds <= 0 ? 'var(--ui-warn, var(--ui-text-secondary))'
+        : 'var(--ui-text-quaternary)',
+      background: 'transparent', border: 'none', padding: '0 2px',
+    },
+    title: 'Idle unload for loaded models. After this many minutes without token activity the router frees VRAM; the next request reloads the model automatically. "never" keeps models resident until the gateway dies (VRAM stays occupied). Applies to the running router within ~1 minute.',
+    children: [
+      jsx('option', { value: '900' }, 'UNLOAD 15m (default)'),
+      jsx('option', { value: '1800' }, 'UNLOAD 30m'),
+      jsx('option', { value: '3600' }, 'UNLOAD 1h'),
+      jsx('option', { value: '7200' }, 'UNLOAD 2h'),
+      jsx('option', { value: '10800' }, 'UNLOAD 3h'),
+      jsx('option', { value: '0' }, 'UNLOAD never'),
+    ],
+  })
+}
+
 export function register(ctx) {
   // ctx.rest is scoped to /api/plugins/llamacpp-tuned and carries auth — raw
   // fetch() from the renderer cannot reach the backend.
@@ -128,6 +173,10 @@ export function register(ctx) {
   ctx.register({
     id: 'llamacpp-tuned-wg', area: STATUSBAR_AREAS.right, order: 51,
     render: () => jsx(WgChip, { api }),
+  })
+  ctx.register({
+    id: 'llamacpp-tuned-unload', area: STATUSBAR_AREAS.right, order: 52,
+    render: () => jsx(UnloadChip, { api }),
   })
 }
 
