@@ -189,6 +189,15 @@ function UnloadChip({ api }) {
     backdrop.onclick = () => { backdrop.remove(); menu.remove() }
     document.body.appendChild(backdrop)
     document.body.appendChild(menu)
+    // The statusbar sits at the window's bottom edge — opening below the chip
+    // puts the menu outside the window. Measure, then open UPWARD; fall back
+    // to below only if there is no room above either.
+    const mh = menu.offsetHeight
+    const above = rect.top - mh - 6
+    menu.style.top = `${Math.round(above >= 0 ? above : rect.bottom + 4)}px`
+    // clamp horizontally so the menu never pokes past the right edge
+    const maxLeft = window.innerWidth - menu.offsetWidth - 8
+    if (rect.left > maxLeft) menu.style.left = `${Math.round(Math.max(8, maxLeft))}px`
   }
 
   return jsx('div', {
