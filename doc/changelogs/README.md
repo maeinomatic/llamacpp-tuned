@@ -2,6 +2,7 @@
 
 Newest entries first. Add an entry for every fix or other change before calling the work complete; see [AGENTS.md](../../AGENTS.md) and the [template](../templates/changelog.md).
 
+- [2026-11-13 — Commit and push of repaired review branch](2026-11-13-commit-and-push-review-branch.md)
 - [2026-11-13 — Machine baseline and cross-machine release checks](2026-11-13-machine-baseline-and-release-checks.md)
 - [2026-11-13 — Documentation layout and mandatory changelog policy](2026-11-13-documentation-layout-and-changelog-policy.md)
 - [2026-11-13 — Proxy reliability, ROCm activation and RTX 3070 compatibility](2026-11-13-proxy-reliability-and-rocm-activation.md)
