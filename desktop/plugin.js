@@ -120,14 +120,15 @@ function WgChip({ api }) {
 function UnloadChip({ api }) {
   // Same query key as the router chip, so one poll feeds both.
   //
-  // WHY NOT A NATIVE <select>: in the packaged Desktop the statusbar host does
-  // not preserve nested element children of a registered chip — the <option>
-  // list was stripped, leaving an empty select (bare chevron, no label, empty
-  // popup). Plain-string children render fine (LLM / WG chips), so this chip is
-  // a click-to-cycle button over the same six states; the label always shows
-  // the active value.
+  // WHY THE POPUP IS BUILT BY HAND: in the packaged Desktop the statusbar host
+  // does not preserve nested element children of a registered chip (a native
+  // <select> lost its <option> list — bare chevron, empty popup), so the menu
+  // cannot go through the React tree. The chip itself renders a plain-string
+  // label (the proven pattern) and onClick builds a real popup directly in
+  // document.body, positioned under the chip, styled with the app's theme
+  // variables so it follows light/dark automatically.
   const STEPS = [
-    { seconds: 900, label: '15m' },
+    { seconds: 900, label: '15m (default)' },
     { seconds: 1800, label: '30m' },
     { seconds: 3600, label: '1h' },
     { seconds: 7200, label: '2h' },
@@ -137,16 +138,74 @@ function UnloadChip({ api }) {
   const { data, refetch } = useStatus(api, 30_000)
   const seconds = data?.idle_unload_s ?? 900
   const current = STEPS.find((s) => s.seconds === seconds) || STEPS[0]
-  const next = STEPS[(STEPS.indexOf(current) + 1) % STEPS.length]
+
+  function openMenu(anchor) {
+    document.getElementById('llamacpp-tuned-unload-menu')?.remove()
+    const rect = anchor.getBoundingClientRect()
+    const menu = document.createElement('div')
+    menu.id = 'llamacpp-tuned-unload-menu'
+    menu.style.cssText = [
+      'position:fixed', `left:${Math.round(rect.left)}px`,
+      `top:${Math.round(rect.bottom + 4)}px`, 'z-index:99999',
+      'min-width:150px', 'border-radius:6px', 'overflow:hidden',
+      'box-shadow:0 4px 16px rgba(0,0,0,.4)',
+      `background:var(--card, #1e1e1e)`,
+      `color:var(--foreground, #ddd)`,
+      `border:1px solid var(--border, rgba(128,128,128,.4))`,
+      'font-size:11px',
+    ].join(';')
+    for (const s of STEPS) {
+      const row = document.createElement('div')
+      row.textContent = `UNLOAD ${s.label}` + (s.seconds === seconds ? '  ✓' : '')
+      row.style.cssText = 'padding:5px 10px; cursor:pointer; white-space:nowrap;'
+        + (s.seconds === seconds
+          ? `background:color-mix(in srgb, var(--accent, #7aa2f7) 18%, var(--card, #1e1e1e));`
+          : '')
+      row.onmouseenter = () => {
+        if (s.seconds !== seconds) row.style.background = 'color-mix(in srgb, var(--foreground, #ddd) 8%, var(--card, #1e1e1e))'
+      }
+      row.onmouseleave = () => {
+        row.style.background = s.seconds === seconds
+          ? 'color-mix(in srgb, var(--accent, #7aa2f7) 18%, var(--card, #1e1e1e))' : ''
+      }
+      row.onclick = (ev) => {
+        ev.stopPropagation()
+        menu.remove()
+        if (s.seconds === seconds) return
+        api('/idle-unload', { method: 'POST', body: { seconds: s.seconds } })
+          .catch(() => {})
+          .finally(() => {
+            queryClient.invalidateQueries({ queryKey: STATUS_KEY })
+            refetch()
+          })
+      }
+      menu.appendChild(row)
+    }
+    const backdrop = document.createElement('div')
+    backdrop.id = 'llamacpp-tuned-unload-backdrop'
+    backdrop.style.cssText = 'position:fixed; inset:0; z-index:99998;'
+    backdrop.onclick = () => { backdrop.remove(); menu.remove() }
+    document.body.appendChild(backdrop)
+    document.body.appendChild(menu)
+  }
+
   return jsx('div', {
-    onClick: (e) => {
-      e.preventDefault()
-      api('/idle-unload', { method: 'POST', body: { seconds: next.seconds } })
-        .catch(() => {})
-        .finally(() => {
-          queryClient.invalidateQueries({ queryKey: STATUS_KEY })
-          refetch()
-        })
+    ref: (el) => {
+      if (el && !el.dataset.menuWired) {
+        // capture-phase click so the menu opens before any host handler runs;
+        // the ref persists across re-renders, wire exactly once
+        el.dataset.menuWired = '1'
+        el.addEventListener('click', (e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          if (document.getElementById('llamacpp-tuned-unload-menu')) {
+            document.getElementById('llamacpp-tuned-unload-menu').remove()
+            document.getElementById('llamacpp-tuned-unload-backdrop')?.remove()
+            return
+          }
+          openMenu(el)
+        }, true)
+      }
     },
     style: {
       display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 3,
@@ -154,8 +213,8 @@ function UnloadChip({ api }) {
       color: seconds <= 0 ? 'var(--ui-warn, var(--muted-foreground))'
         : 'var(--ui-text-quaternary, var(--muted-foreground))',
     },
-    title: `Idle unload: models stay in VRAM ${current.label === 'never' ? 'indefinitely (until the gateway dies)' : current.label + ' without token activity, then free VRAM; the next request reloads automatically'}. Click to switch to ${next.label === 'never' ? 'NEVER unload' : next.label}. Applies to the running router within ~1 minute.`,
-    children: `UNLOAD ${current.label} ⇄ ${next.label === 'never' ? 'never' : next.label}`,
+    title: `Idle unload: models stay in VRAM ${current.seconds === 0 ? 'indefinitely (until the gateway dies)' : current.label + ' without token activity, then free VRAM; the next request reloads automatically'}. Click for the options. Applies to the running router within ~1 minute.`,
+    children: `UNLOAD ${current.label} ▾`,
   })
 }
 
