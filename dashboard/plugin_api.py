@@ -79,7 +79,17 @@ DEFAULTS = {"port": 8080, "idle_unload_s": 900, "poll_s": 60,
             #   wins over everything (use your own CUDA/Vulkan/ROCm build);
             # "backend": "cuda"|"vulkan"|"cpu" — asset picked by /install
             #   instead of nvidia-smi auto-detection.
-            "engine_path": "", "backend": ""}
+            "engine_path": "", "backend": "",
+            # LAN sharing (SHARE chip): forward this machine's tuned proxy to the
+            # network so a DIFFERENT Hermes gateway (e.g. the NAS backend) can use
+            # these models. OFF by default. The listener forwards to 127.0.0.1:<port>
+            # (the proxy), so it inherits the proxy's per-model lock -- never point it
+            # at the router port. Reachability is gated by the OS firewall;
+            # share_allow adds a source-IP allowlist and share_token an optional
+            # bearer-token check. Empty share_allow = no IP restriction (rely on the
+            # firewall); empty share_token = no auth.
+            "share": False, "share_port": 8090, "share_bind": "0.0.0.0",
+            "share_allow": [], "share_token": ""}
 
 _operation = threading.Lock()
 _proc = None
@@ -872,6 +882,162 @@ def _proxy_stop():
         _proxy_thread = None
 
 
+# -- LAN sharing (SHARE chip) --------------------------------------------
+# Forwards this machine's tuned proxy (127.0.0.1:<port>) to the LAN so a different
+# Hermes gateway can use these models. Remote requests still funnel through the one
+# proxy on 127.0.0.1, so its per-model serialization lock is preserved; this relay
+# must NOT point at the router port (port+1). Binding a socket needs no admin; the
+# OS firewall (one-time rule) is what admits inbound traffic.
+_share_server = None
+_share_thread = None
+_share_loop = None
+_share_lifecycle = threading.Lock()
+
+
+def _share_allowed(peer_ip: str) -> bool:
+    allow = _settings().get("share_allow") or []
+    if isinstance(allow, str):
+        allow = [allow]
+    allow = [str(a).strip() for a in allow if str(a).strip()]
+    return not allow or peer_ip in allow
+
+
+def _share_auth_ok(head: bytes, token: str) -> bool:
+    try:
+        text = head.decode("latin-1", "replace")
+    except Exception:
+        return False
+    for line in text.split("\r\n")[1:]:
+        if not line:
+            break
+        key, _, value = line.partition(":")
+        if key.strip().lower() == "authorization":
+            return value.strip() == f"Bearer {token}"
+    return False
+
+
+async def _share_pipe(reader, writer):
+    try:
+        while True:
+            data = await reader.read(65536)
+            if not data:
+                break
+            writer.write(data)
+            await writer.drain()
+    except Exception:
+        pass
+    finally:
+        try:
+            writer.close()
+        except Exception:
+            pass
+
+
+async def _share_handle(reader, writer):
+    peer = (writer.get_extra_info("peername") or ("?", 0))[0]
+    token = str(_settings().get("share_token") or "")
+    if not _share_allowed(peer):
+        writer.close()
+        return
+    target = ("127.0.0.1", int(_settings().get("port", 8080)))
+    try:
+        upstream_reader, upstream_writer = await asyncio.open_connection(*target)
+    except Exception:
+        writer.close()
+        return
+    if token:
+        # Enforce the bearer token on the first request of a connection. Read only
+        # the header block, reject before any body reaches the proxy, then forward
+        # everything verbatim (streaming/SSE is unaffected -- this stays a byte pipe).
+        try:
+            head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=15)
+        except (asyncio.IncompleteReadError, asyncio.LimitOverrunError, asyncio.TimeoutError):
+            head = b""
+        if not head or not _share_auth_ok(head, token):
+            upstream_writer.close()
+            try:
+                writer.write(b"HTTP/1.1 401 Unauthorized\r\ncontent-type: text/plain\r\n"
+                             b"content-length: 12\r\nconnection: close\r\n\r\nunauthorized")
+                await writer.drain()
+            except Exception:
+                pass
+            writer.close()
+            return
+        upstream_writer.write(head)
+        await upstream_writer.drain()
+    await asyncio.gather(_share_pipe(reader, upstream_writer),
+                         _share_pipe(upstream_reader, writer))
+
+
+def _share_start():
+    """Bind the share listener before returning so port errors reach the caller."""
+    global _share_server, _share_thread, _share_loop
+    import socket
+    with _share_lifecycle:
+        if _share_thread is not None and _share_thread.is_alive():
+            return
+        bind = str(_settings().get("share_bind") or "0.0.0.0")
+        port = int(_settings().get("share_port", 8090))
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.bind((bind, port))
+            sock.listen(64)
+        except OSError as exc:
+            sock.close()
+            raise RuntimeError(f"Cannot bind share listener on {bind}:{port}: {exc}") from exc
+        loop = asyncio.new_event_loop()
+        err: list = []
+        ready = threading.Event()
+
+        def run():
+            global _share_server
+            asyncio.set_event_loop(loop)
+            try:
+                srv = loop.run_until_complete(asyncio.start_server(_share_handle, sock=sock))
+            except Exception as exc:      # noqa: BLE001 - surfaced to the caller
+                err.append(exc)
+                ready.set()
+                return
+            _share_server = srv
+            ready.set()
+            try:
+                loop.run_forever()
+            finally:
+                srv.close()
+                try:
+                    loop.run_until_complete(srv.wait_closed())
+                except Exception:
+                    pass
+                loop.close()
+
+        _share_loop = loop
+        _share_thread = threading.Thread(target=run, daemon=True, name="llamacpp-tuned-share")
+        _share_thread.start()
+        ready.wait(5)
+        if err:
+            _share_thread = None
+            _share_loop = None
+            sock.close()
+            raise RuntimeError(f"Cannot start share listener: {err[0]}")
+
+
+def _share_stop():
+    global _share_server, _share_thread, _share_loop
+    with _share_lifecycle:
+        loop = _share_loop
+        thread = _share_thread
+        _share_loop = None
+        _share_thread = None
+        _share_server = None
+        if loop is not None:
+            try:
+                loop.call_soon_threadsafe(loop.stop)
+            except Exception:
+                pass
+        if thread is not None:
+            thread.join(5)
+
+
 def _spawn():
     global _engine_in_use
     ENGINE_DIR.mkdir(parents=True, exist_ok=True)
@@ -887,6 +1053,8 @@ def _spawn():
     try:
         _attach_watchdog(proc)
         _proxy_start()
+        if _settings().get("share"):
+            _share_start()
     except BaseException:
         proc.terminate()
         proc.wait(timeout=30)
@@ -899,6 +1067,7 @@ def _stop_router():
     global _proc
     proc, _proc = _proc, None
     try:
+        _share_stop()
         _proxy_stop()
     finally:
         if proc is not None and proc.poll() is None:
@@ -945,6 +1114,10 @@ def _read_state():
             "engine_progress": dict(_state),
             "local_guard_fix": _bypass_setting(),
             "idle_unload_s": int(_settings().get("idle_unload_s", 900)),
+            "share": bool(_share_thread is not None and _share_thread.is_alive()),
+            "share_port": int(_settings().get("share_port", 8090)),
+            "share_allow": list(_settings().get("share_allow") or []),
+            "share_token_set": bool(str(_settings().get("share_token") or "")),
             "busy": _operation.locked()}
 
 
@@ -1082,4 +1255,41 @@ async def set_idle_unload(body: IdleUnloadRequest):
     state = _read_state()
     if state["idle_unload_s"] != seconds:
         raise HTTPException(502, "Read-back did not confirm the idle-unload setting.")
+    return state
+
+
+class ShareRequest(BaseModel):
+    enabled: StrictBool
+
+
+@router.post("/share")
+async def set_share(body: ShareRequest):
+    """Chip toggle: expose the tuned proxy to the LAN for a remote Hermes gateway.
+
+    ON starts a relay listener that forwards to 127.0.0.1:<port> (this machine's
+    proxy), so the proxy's per-model lock still serializes local + remote calls.
+    Inbound is gated by the OS firewall; share_allow restricts source IPs and
+    share_token (optional) requires an Authorization: Bearer header. The choice
+    persists in settings.json and is re-applied on the next router start.
+    """
+    if body.enabled:
+        if not _read_state()["enabled"]:
+            raise HTTPException(409, "Enable the tuned router (LLM chip) before sharing.")
+        if not _operation.acquire(blocking=False):
+            raise HTTPException(409, "Another operation is already running.")
+        try:
+            _write_settings({"share": True})
+            _share_start()
+        except Exception as exc:
+            _write_settings({"share": False})
+            _share_stop()
+            raise HTTPException(502, f"Cannot start share listener: {exc}")
+        finally:
+            _operation.release()
+    else:
+        _write_settings({"share": False})
+        _share_stop()
+    state = _read_state()
+    if state["share"] != bool(body.enabled):
+        raise HTTPException(502, "Read-back did not confirm the share setting.")
     return state

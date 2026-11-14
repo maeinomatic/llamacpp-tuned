@@ -15,7 +15,7 @@
  * element. Backend: /api/plugins/llamacpp-tuned/.
  */
 import { cn, STATUSBAR_AREAS, queryClient, useQuery, useValue, host } from '@hermes/plugin-sdk'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { jsx } from 'react/jsx-runtime'
 
 const STATUS_KEY = ['llamacpp-tuned-status']
@@ -115,6 +115,60 @@ function WgChip({ api }) {
       ? 'Write guard: FIXED for staged local-router models. Hermes\' guard cannot record a whole-file baseline on this filesystem (its os.fstat/os.stat st_ctime_ns mismatch), so write_file refuses legitimate overwrites; for local-model write calls the plugin swaps in a helper that takes one metadata view and still checks byte identity, so a genuinely stale overwrite is still refused. Codex and every other provider keep the shipped helper. Click to revert.'
       : 'Write guard: STOCK (default) — the shipped helper, for every provider. Click to make local-router sessions use the corrected baseline check if write_file keeps refusing legitimate overwrites with "has not seen its full current content". Codex is not affected either way.',
     children: fixed ? 'WG fixed' : 'WG stock',
+  })
+}
+
+function ShareChip({ api }) {
+  // Same query key as the router chip, so one poll feeds all.
+  const { data, refetch } = useStatus(api, 30_000)
+  // Surface failures instead of swallowing them (a 404 from an unmounted route,
+  // a 409 when the router is off, etc. otherwise looks like a dead chip).
+  const [err, setErr] = useState(null)
+  const on = data?.share ?? false
+  const enabled = data?.enabled ?? false
+
+  const flashError = (msg) => {
+    setErr(String(msg || 'failed').slice(0, 140))
+    setTimeout(() => setErr(null), 5000)
+  }
+
+  const label = err ? 'SHARE !' : on ? 'SHARE ●' : 'SHARE off'
+  const color = err
+    ? 'var(--ui-red, var(--ui-warn, var(--ui-text-secondary)))'
+    : on ? 'var(--ui-green, var(--ui-text-secondary))'
+    : 'var(--ui-text-quaternary)'
+
+  return jsx('div', {
+    onClick: (e) => {
+      e.preventDefault()
+      if (!enabled) {
+        flashError('Enable the LLM chip (tuned router) before sharing')
+        return
+      }
+      api('/share', { method: 'POST', body: { enabled: !on } })
+        .then((res) => {
+          if (!res || res.share !== !on) flashError('Backend did not confirm the change')
+        })
+        .catch((ex) => {
+          const m = ex && (ex.message || ex.detail || ex)
+          flashError(m || 'Share toggle failed (has the gateway been restarted?)')
+        })
+        .finally(() => {
+          queryClient.invalidateQueries({ queryKey: STATUS_KEY })
+          refetch()
+        })
+    },
+    style: {
+      display: 'flex', alignItems: 'center', cursor: err ? 'default' : 'pointer',
+      padding: '0 6px', fontSize: 10, whiteSpace: 'nowrap', userSelect: 'none',
+      color,
+    },
+    title: err
+      ? `SHARE error: ${err}`
+      : on
+        ? `Sharing the tuned proxy on port ${data?.share_port ?? 8090} to the LAN for a remote Hermes gateway${data?.share_token_set ? ' (bearer token required)' : ''}. Click to stop sharing.`
+        : `Share the tuned proxy (port ${data?.share_port ?? 8090}) to the LAN so another Hermes gateway (e.g. the NAS) can use these models. Requires the LLM chip ON and a firewall rule for the port. Click to enable.`,
+    children: label,
   })
 }
 
@@ -257,6 +311,10 @@ export function register(ctx) {
   ctx.register({
     id: 'llamacpp-tuned-unload', area: STATUSBAR_AREAS.right, order: 50.2,
     render: () => jsx(UnloadChip, { api }),
+  })
+  ctx.register({
+    id: 'llamacpp-tuned-share', area: STATUSBAR_AREAS.right, order: 50.3,
+    render: () => jsx(ShareChip, { api }),
   })
 }
 
